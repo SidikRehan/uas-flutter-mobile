@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // 1. Buat bikin akun
-import 'package:cloud_firestore/cloud_firestore.dart'; // 2. Buat simpan biodata
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -14,13 +14,12 @@ class _RegisterPageState extends State<RegisterPage> {
   final _nikController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  // 1. TAMBAH CONTROLLER BPJS
+  final _bpjsController = TextEditingController(); 
 
-  // Loading state (biar tombol muter-muter pas lagi proses)
   bool _isLoading = false;
 
-  // Fungsi untuk Mendaftar
   Future<void> _registerUser() async {
-    // 1. Cek dulu apakah kolom diisi semua?
     if (_namaController.text.isEmpty ||
         _nikController.text.isEmpty ||
         _emailController.text.isEmpty ||
@@ -32,53 +31,48 @@ class _RegisterPageState extends State<RegisterPage> {
     }
 
     setState(() {
-      _isLoading = true; // Mulai loading
+      _isLoading = true;
     });
 
     try {
-      // 2. Bikin Akun di Firebase Auth (Email & Password)
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // Ambil ID Unik (UID) yang baru dibuat
       String uid = userCredential.user!.uid;
 
-      // 3. Simpan Biodata Pasien ke Firestore Database
-      // Kita simpan di koleksi 'users' (sesuai diagrammu)
+      // 2. SIMPAN NOMOR BPJS KE KOLEKSI 'USERS'
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
         'uid': uid,
         'nama': _namaController.text,
         'email': _emailController.text,
-        'role': 'pasien', // PENTING: Menandai ini adalah Pasien
+        'role': 'pasien',
+        'nomor_bpjs': _bpjsController.text.trim(), // <--- SIMPAN DISINI
         'created_at': DateTime.now().toIso8601String(),
       });
 
-      // Simpan data detail khusus pasien (NIK, dll) di koleksi 'pasiens'
       await FirebaseFirestore.instance.collection('pasiens').doc(uid).set({
         'uid': uid,
         'nik': _nikController.text,
         'nama': _namaController.text,
-        'riwayat_alergi': '-', // Default dulu
+        'riwayat_alergi': '-',
       });
 
-      // 4. Kalau berhasil, kasih tahu user
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Registrasi Berhasil! Silahkan Login.")),
         );
-        Navigator.pop(context); // Kembali ke halaman Login
+        Navigator.pop(context);
       }
     } on FirebaseAuthException catch (e) {
-      // KITA TAMPILKAN KODE ERROR ASLINYA DI SINI
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Gagal: ${e.code}\n${e.message}"), // Munculkan kode asli
+            content: Text("Gagal: ${e.code}\n${e.message}"),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5), // Tahan 5 detik biar terbaca
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -90,7 +84,7 @@ class _RegisterPageState extends State<RegisterPage> {
       }
     } finally {
       setState(() {
-        _isLoading = false; // Stop loading
+        _isLoading = false;
       });
     }
   }
@@ -104,8 +98,7 @@ class _RegisterPageState extends State<RegisterPage> {
           padding: const EdgeInsets.all(20),
           child: Card(
             elevation: 5,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             child: Padding(
               padding: const EdgeInsets.all(30),
               child: Column(
@@ -141,6 +134,19 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   const SizedBox(height: 15),
 
+                  // 3. INPUT FIELD BPJS (OPSIONAL)
+                  TextField(
+                    controller: _bpjsController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                        labelText: "Nomor BPJS (Opsional)",
+                        hintText: "Kosongkan jika pasien umum/regular",
+                        prefixIcon: const Icon(Icons.health_and_safety),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10))),
+                  ),
+                  const SizedBox(height: 15),
+
                   TextField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -163,12 +169,11 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   const SizedBox(height: 30),
 
-                  // --- TOMBOL DAFTAR (Dengan Loading) ---
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _registerUser, // Kalau loading, tombol mati
+                      onPressed: _isLoading ? null : _registerUser,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         foregroundColor: Colors.white,

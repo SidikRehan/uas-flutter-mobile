@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'auth/login_page.dart';
-import 'pasien/riwayat_page.dart'; 
+import 'pasien/riwayat_page.dart';
 import 'admin/poli_page.dart';
-import 'profile_page.dart';
-import 'pasien/cek_antrian_page.dart'; // Pastikan file ini ada
+import 'profile_page.dart';          // Pastikan file ini ada
+import 'pasien/cek_antrian_page.dart';
+import 'pasien/tagihan_page.dart';   // Pastikan file ini ada
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -24,14 +25,10 @@ class _HomePageState extends State<HomePage> {
     _ambilDataUser();
   }
 
-  // Ambil nama user dari database biar sapaannya personal
   void _ambilDataUser() async {
     if (user != null) {
-      var snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user!.uid)
-          .get();
-
+      // Coba ambil nama dari users collection
+      var snapshot = await FirebaseFirestore.instance.collection('users').doc(user!.uid).get();
       if (snapshot.exists && mounted) {
         setState(() {
           _namaUser = snapshot.data()?['nama'] ?? "Pasien";
@@ -40,7 +37,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Fungsi Logout
   void _logout() async {
     await FirebaseAuth.instance.signOut();
     if (mounted) {
@@ -60,46 +56,33 @@ class _HomePageState extends State<HomePage> {
         title: const Text("RS Sehat Sentosa"),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false, // Hilangkan tombol back default
+        automaticallyImplyLeading: false, // Hilangkan tombol back
         actions: [
           IconButton(onPressed: _logout, icon: const Icon(Icons.logout)),
         ],
       ),
       body: Column(
         children: [
-          // --- BAGIAN HEADER (Nama User) ---
+          // HEADER (Sapaan Nama)
           Container(
             padding: const EdgeInsets.all(20),
             width: double.infinity,
             decoration: const BoxDecoration(
               color: Colors.blue,
               borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
-              ),
+                  bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Selamat Datang,",
-                  style: TextStyle(color: Colors.white70, fontSize: 16),
-                ),
-                Text(
-                  _namaUser,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                const Text("Selamat Datang,", style: TextStyle(color: Colors.white70, fontSize: 16)),
+                Text(_namaUser, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
-
-          const SizedBox(height: 20),
-
-          // --- BAGIAN MENU GRID (Tombol-tombol) ---
+          const SizedBox(height: 10),
+          
+          // GRID MENU
           Expanded(
             child: GridView.count(
               padding: const EdgeInsets.all(20),
@@ -107,57 +90,44 @@ class _HomePageState extends State<HomePage> {
               crossAxisSpacing: 15,
               mainAxisSpacing: 15,
               children: [
-                // 1. Tombol Pilih Poli
+                // 1. POLI
                 _buildMenuCard(
                   icon: Icons.local_hospital,
                   color: Colors.orange,
                   label: "Pilih Poli",
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const PoliPage()),
-                    );
-                  },
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PoliPage())),
                 ),
 
-                // 2. Tombol Cek Antrian (SUDAH DIPERBAIKI)
+                // 2. ANTRIAN
                 _buildMenuCard(
                   icon: Icons.people_alt,
                   color: Colors.green,
                   label: "Cek Antrian",
-                  onTap: () {
-                    // SEKARANG SUDAH PINDAH KE HALAMAN ANTRIAN
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const CekAntrianPage()),
-                    );
-                  },
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CekAntrianPage())),
                 ),
 
-                // 3. Tombol Riwayat Berobat
+                // 3. TAGIHAN (Baru)
+                _buildMenuCard(
+                  icon: Icons.receipt_long,
+                  color: Colors.teal,
+                  label: "Tagihan",
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TagihanPage())),
+                ),
+
+                // 4. RIWAYAT
                 _buildMenuCard(
                   icon: Icons.history_edu,
                   color: Colors.purple,
                   label: "Riwayat",
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const RiwayatPage()),
-                    );
-                  },
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RiwayatPage())),
                 ),
 
-                // 4. Tombol Profil Saya
+                // 5. PROFIL SAYA (Ini yang tadi hilang)
                 _buildMenuCard(
-                  icon: Icons.person,
-                  color: Colors.blue,
+                  icon: Icons.person, 
+                  color: Colors.blue, 
                   label: "Profil Saya",
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ProfilePage()),
-                    );
-                  },
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage())),
                 ),
               ],
             ),
@@ -167,14 +137,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // --- WIDGET KOTAK MENU ---
-  Widget _buildMenuCard({
-    required IconData icon,
-    required Color color,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    // Saya ganti GestureDetector jadi InkWell biar ada efek klik (riak air)
+  // Widget Kotak Menu
+  Widget _buildMenuCard({required IconData icon, required Color color, required String label, required VoidCallback onTap}) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -190,10 +154,7 @@ class _HomePageState extends State<HomePage> {
               child: Icon(icon, size: 30, color: color),
             ),
             const SizedBox(height: 15),
-            Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
       ),

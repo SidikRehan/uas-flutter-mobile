@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../auth/login_page.dart';
+import 'dokter_pemeriksaan_page.dart'; 
+import 'dokter_jadwal_page.dart';
+import 'dokter_profile_page.dart'; // <--- FILE BARU YANG KAMU BUAT
 
 class DokterDashboard extends StatefulWidget {
   const DokterDashboard({super.key});
@@ -12,86 +15,55 @@ class DokterDashboard extends StatefulWidget {
 
 class _DokterDashboardState extends State<DokterDashboard> {
   User? currentUser = FirebaseAuth.instance.currentUser;
-  String? namaDokterSaatIni; // Variabel untuk menyimpan nama dokter yang login
+  String namaDokter = "Dokter";
 
   @override
   void initState() {
     super.initState();
-    _getDataDokter();
+    _getNamaDokter();
   }
 
-  // 1. Ambil Nama Dokter dari Database Users berdasarkan UID Login
-  void _getDataDokter() async {
+  void _getNamaDokter() async {
     if (currentUser != null) {
-      try {
-        var doc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(currentUser!.uid)
-            .get();
-        
-        if (doc.exists && mounted) {
-          setState(() {
-            // Pastikan field 'nama' di user SAMA PERSIS dengan field 'nama_dokter' di booking
-            namaDokterSaatIni = doc.data()?['nama'];
-          });
-        }
-      } catch (e) {
-        // Handle error
-        print("Error ambil data dokter: $e");
+      // Ambil nama terbaru (siapa tahu baru diedit)
+      var doc = await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).get();
+      if (mounted) {
+        setState(() {
+          namaDokter = doc.data()?['nama'] ?? "Dokter";
+        });
       }
     }
   }
 
-  void _inputMedis(String docId) {
-    TextEditingController medisController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Input Rekam Medis"),
-        content: TextField(
-          controller: medisController,
-          maxLines: 4,
-          decoration: const InputDecoration(
-            hintText: "Diagnosa & Resep Obat...",
-            border: OutlineInputBorder(),
-          ),
+  // Widget Tombol Menu
+  Widget _buildMenuCard(String title, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 35,
+              backgroundColor: color.withOpacity(0.2),
+              child: Icon(icon, size: 35, color: color),
+            ),
+            const SizedBox(height: 15),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
-          ElevatedButton(
-            onPressed: () {
-              if (medisController.text.isNotEmpty) {
-                FirebaseFirestore.instance.collection('bookings').doc(docId).update({
-                  'hasil_medis': medisController.text,
-                  'status': 'Menunggu Finalisasi Admin',
-                });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Terkirim ke Admin")));
-              }
-            },
-            child: const Text("Kirim"),
-          ),
-        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Jika nama dokter belum ke-load, tampilkan loading dulu
-    if (namaDokterSaatIni == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("Dashboard Dokter", style: TextStyle(fontSize: 16)),
-            Text("dr. $namaDokterSaatIni", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          ],
-        ),
+        title: const Text("Portal Dokter"),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         actions: [
@@ -100,98 +72,64 @@ class _DokterDashboardState extends State<DokterDashboard> {
             onPressed: () async {
               await FirebaseAuth.instance.signOut();
               if (mounted) {
-                Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const LoginPage()));
+                Navigator.pushAndRemoveUntil(
+                  context, 
+                  MaterialPageRoute(builder: (c) => const LoginPage()), 
+                  (route) => false
+                );
               }
             },
           )
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        // --- INI BAGIAN PENTINGNYA ---
-        // Kita filter 2 hal: 
-        // 1. Status harus 'Dalam Antrean'
-        // 2. Nama Dokter harus SAMA dengan dokter yang login
-        stream: FirebaseFirestore.instance
-            .collection('bookings')
-            .where('status', isEqualTo: 'Dalam Antrean')
-            .where('nama_dokter', isEqualTo: namaDokterSaatIni) // <-- FILTER INI YANG BIKIN SPESIFIK
-            .snapshots(),
-        builder: (context, snapshot) {
-          // Cek Error Index (Biasanya muncul kalau pake 2 filter where)
-          if (snapshot.hasError) {
-             return Center(
-               child: Padding(
-                 padding: const EdgeInsets.all(20.0),
-                 child: Text(
-                   "Error Index: ${snapshot.error}\n\n(Buka terminal/debug console, klik link untuk buat Index)",
-                   style: const TextStyle(color: Colors.red),
-                   textAlign: TextAlign.center,
-                 ),
-               ),
-             );
-          }
+      body: Column(
+        children: [
+          // Header Nama Dokter
+          Container(
+            padding: const EdgeInsets.all(25),
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              color: Colors.teal,
+              borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Selamat Bertugas,", style: TextStyle(color: Colors.white70)),
+                Text(namaDokter, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          
+          // Grid Menu
+          Expanded(
+            child: GridView.count(
+              padding: const EdgeInsets.all(25),
+              crossAxisCount: 2, 
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              children: [
+                // MENU 1: PERIKSA PASIEN
+                _buildMenuCard("Periksa Pasien", Icons.medical_services, Colors.orange, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (c) => const DokterPemeriksaanPage()));
+                }),
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+                // MENU 2: JADWAL SAYA
+                _buildMenuCard("Jadwal Saya", Icons.calendar_today, Colors.blue, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (c) => const DokterJadwalPage()));
+                }),
 
-          var docs = snapshot.data!.docs;
-
-          if (docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.check_circle_outline, size: 80, color: Colors.teal),
-                  const SizedBox(height: 10),
-                  Text("Tidak ada pasien untuk dr. $namaDokterSaatIni saat ini."),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(10),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              var data = docs[index].data() as Map<String, dynamic>;
-              
-              return Card(
-                elevation: 3,
-                margin: const EdgeInsets.only(bottom: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(15),
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.teal.shade100,
-                    radius: 25,
-                    child: Text(
-                      "${data['no_antrian'] ?? '?'}", 
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal, fontSize: 18)
-                    ),
-                  ),
-                  title: Text(data['nama_pasien'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 5),
-                      Text("Poli: ${data['poli']}"),
-                      Text("Jadwal: ${data['hari'] ?? '-'}"),
-                    ],
-                  ),
-                  trailing: ElevatedButton(
-                    onPressed: () => _inputMedis(docs[index].id),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal, 
-                      foregroundColor: Colors.white
-                    ),
-                    child: const Text("Periksa"),
-                  ),
-                ),
-              );
-            },
-          );
-        },
+               // MENU 3: EDIT PROFIL (INI YANG BARU)
+                // Ganti Icons.person_edit MENJADI Icons.manage_accounts
+                _buildMenuCard("Edit Profil", Icons.manage_accounts, Colors.purple, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (c) => const DokterProfilePage()))
+                      .then((_) => _getNamaDokter()); 
+                }),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
