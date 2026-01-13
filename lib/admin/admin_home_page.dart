@@ -1,45 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../auth/login_page.dart';
-// import '../dokter/add_doctor_page.dart'; // <--- INI DIHAPUS SAJA (Sudah pindah ke Kelola User)
-import 'admin_booking_page.dart';
-import 'admin_users_page.dart'; 
-import 'admin_laporan_page.dart'; // <--- JANGAN LUPA IMPORT INI (File Laporan)
 
-class AdminHomePage extends StatelessWidget {
+// Import halaman-halaman ADMIN yang BENAR (Valid)
+import 'admin_users_page.dart';    // Kelola Dokter, Pasien, Admin & Poli
+import 'admin_booking_page.dart';  // Antrian & Kasir
+import 'admin_laporan_page.dart';  // Laporan Keuangan
+
+class AdminHomePage extends StatefulWidget {
   const AdminHomePage({super.key});
 
-  // Widget untuk membuat Tombol Menu Kotak
-  Widget _buildMenuCard(BuildContext context, {
-    required String title,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircleAvatar(
-              radius: 35,
-              backgroundColor: color.withOpacity(0.2),
-              child: Icon(icon, size: 35, color: color),
-            ),
-            const SizedBox(height: 15),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ],
-        ),
-      ),
-    );
+  @override
+  State<AdminHomePage> createState() => _AdminHomePageState();
+}
+
+class _AdminHomePageState extends State<AdminHomePage> {
+  // --- MENU DASHBOARD ---
+  final List<Map<String, dynamic>> menuAdmin = [
+    {
+      "title": "Kelola Pengguna",
+      "icon": Icons.people,
+      "color": Colors.blue,
+      "page": const AdminUsersPage() // Halaman Tab (Dokter/Pasien/Admin) + Gear Poli
+    },
+    {
+      "title": "Antrian & Kasir",
+      "icon": Icons.point_of_sale,
+      "color": Colors.orange,
+      "page": const AdminBookingPage() // Halaman Kasir & Approval
+    },
+    {
+      "title": "Laporan & Statistik",
+      "icon": Icons.bar_chart,
+      "color": Colors.green,
+      "page": const AdminLaporanPage() // Halaman Duit
+    },
+  ];
+
+  void _logout() async {
+    await FirebaseAuth.instance.signOut();
+    if (mounted) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const LoginPage()));
+    }
   }
 
   @override
@@ -48,104 +50,74 @@ class AdminHomePage extends StatelessWidget {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: const Text("Dashboard Admin"),
-        backgroundColor: Colors.redAccent, 
+        backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: "Keluar",
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                  (route) => false,
-                );
-              }
-            },
-          ),
+          IconButton(onPressed: _logout, icon: const Icon(Icons.logout), tooltip: "Keluar"),
         ],
       ),
-      body: Column(
-        children: [
-          // Header Selamat Datang
-          Container(
-            padding: const EdgeInsets.all(25),
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              color: Colors.redAccent,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Selamat Datang, Admin",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const Text("Silakan pilih menu operasional:"),
+            const SizedBox(height: 20),
+            
+            // --- GRID MENU ---
+            Expanded(
+              child: GridView.builder(
+                itemCount: menuAdmin.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2, // 2 Kolom
+                  crossAxisSpacing: 15,
+                  mainAxisSpacing: 15,
+                  childAspectRatio: 1.0,
+                ),
+                itemBuilder: (context, index) {
+                  return InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context, 
+                        MaterialPageRoute(builder: (context) => menuAdmin[index]['page'])
+                      );
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5)],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(15),
+                            decoration: BoxDecoration(
+                              color: menuAdmin[index]['color'].withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(menuAdmin[index]['icon'], size: 40, color: menuAdmin[index]['color']),
+                          ),
+                          const SizedBox(height: 15),
+                          Text(
+                            menuAdmin[index]['title'],
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Halo, Admin", style: TextStyle(color: Colors.white70, fontSize: 16)),
-                SizedBox(height: 5),
-                Text("Panel Kontrol", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-
-          // Grid Menu
-          Expanded(
-            child: GridView.count(
-              padding: const EdgeInsets.all(25),
-              crossAxisCount: 2, // 2 Kolom
-              crossAxisSpacing: 20,
-              mainAxisSpacing: 20,
-              children: [
-                // 1. MENU KELOLA BOOKING
-                _buildMenuCard(
-                  context,
-                  title: "Booking Masuk",
-                  icon: Icons.assignment_turned_in,
-                  color: Colors.blue,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const AdminBookingPage()),
-                    );
-                  },
-                ),
-
-                // 2. MENU KELOLA PENGGUNA (User, Dokter, Admin)
-                // Fitur Tambah Dokter sudah ada di dalam sini (Tab Dokter -> Tombol +)
-                _buildMenuCard(
-                  context,
-                  title: "Kelola User",
-                  icon: Icons.manage_accounts,
-                  color: Colors.purple,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const AdminUsersPage()),
-                    );
-                  },
-                ),
-
-                // 3. MENU LAPORAN (Sudah Disambungkan)
-                _buildMenuCard(
-                  context,
-                  title: "Laporan",
-                  icon: Icons.analytics,
-                  color: Colors.orange,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const AdminLaporanPage()),
-                    );
-                  },
-                ),
-                
-                // Jika ingin menu terlihat penuh (genap), bisa tambah 1 menu info atau biarkan kosong
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -45,7 +45,7 @@ class _LoginPageState extends State<LoginPage> {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const DokterDashboard()));
           } else {
             // Default ke Pasien
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const HomePage()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const PasienHomePage()));
           }
         }
       } else {
