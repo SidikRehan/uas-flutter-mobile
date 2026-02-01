@@ -1,244 +1,311 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart'; // Pastikan sudah run 'flutter pub add intl'
+import 'package:flutter/services.dart'; // Untuk input formatter
 
 class DokterPemeriksaanPage extends StatefulWidget {
-  const DokterPemeriksaanPage({super.key});
+  final String bookingId;
+  final Map<String, dynamic> dataPasien; 
+
+  const DokterPemeriksaanPage({super.key, required this.bookingId, required this.dataPasien});
 
   @override
   State<DokterPemeriksaanPage> createState() => _DokterPemeriksaanPageState();
 }
 
 class _DokterPemeriksaanPageState extends State<DokterPemeriksaanPage> {
-  User? currentUser = FirebaseAuth.instance.currentUser;
+  // Controller Form
+  final _diagnosaController = TextEditingController();
+  final _resepController = TextEditingController();
+  final _catatanController = TextEditingController();
+  
+  // Controller Biaya
+  final _jasaDokterController = TextEditingController();
+  final _biayaAdminController = TextEditingController();
+  final _biayaOpsController = TextEditingController();
+  final _totalBiayaController = TextEditingController(); 
 
-  void _inputMedisLengkap(String docId, Map<String, dynamic> dataBooking) {
-    bool isBpjs = (dataBooking['jenis_pasien'] == 'BPJS');
+  bool isBPJS = false;
 
-    final diagnosaCtrl = TextEditingController(text: dataBooking['diagnosa'] ?? '');
-    final tindakanCtrl = TextEditingController(text: dataBooking['tindakan'] ?? '');
-    final resepCtrl = TextEditingController(text: dataBooking['resep_obat'] ?? '');
-    final biayaObatCtrl = TextEditingController(text: '0');
+  @override
+  void initState() {
+    super.initState();
+    _cekStatusDanBiaya();
+    _jasaDokterController.addListener(_hitungTotalOtomatis);
+  }
 
-    // Tarif Dasar
-    int biayaAdmin = isBpjs ? 0 : 10000;
-    int biayaDokter = isBpjs ? 0 : 50000;
-    int biayaOps = isBpjs ? 0 : 10000;
+  @override
+  void dispose() {
+    _jasaDokterController.removeListener(_hitungTotalOtomatis);
+    super.dispose();
+  }
+
+  void _cekStatusDanBiaya() {
+    String jenis = widget.dataPasien['jenis_pasien'] ?? 'Regular';
     
-    bool tebusDiRS = false; 
-    int totalBiaya = biayaAdmin + biayaDokter + biayaOps;
+    setState(() {
+      if (jenis == 'BPJS') {
+        isBPJS = true;
+        _jasaDokterController.text = '0';
+        _biayaAdminController.text = '0';
+        _biayaOpsController.text = '0';
+        _totalBiayaController.text = '0';
+      } else {
+        isBPJS = false;
+        // Default Jasa Dokter (Range Tengah)
+        _jasaDokterController.text = '50000'; 
+        _biayaAdminController.text = '20000'; 
+        _biayaOpsController.text = '30000';    
+        _hitungTotalOtomatis(); 
+      }
+    });
+  }
 
-    showDialog(
+  void _hitungTotalOtomatis() {
+    if (isBPJS) return; 
+
+    // Parsing aman (cegah error overflow)
+    int jasaDokter = int.tryParse(_jasaDokterController.text) ?? 0;
+    int admin = int.tryParse(_biayaAdminController.text) ?? 0;
+    int ops = int.tryParse(_biayaOpsController.text) ?? 0;
+
+    int total = jasaDokter + admin + ops;
+
+    // Tampilkan Total
+    _totalBiayaController.text = total.toString();
+  }
+
+  String _formatTanggalIndo(String rawDate) {
+    try {
+      DateTime dt = DateTime.parse(rawDate);
+      return DateFormat('EEEE, d MMM yyyy', 'id_ID').format(dt); 
+    } catch (e) {
+      return rawDate;
+    }
+  }
+
+  void _lihatRiwayatKunjungan() {
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false, // Biar gak ketutup kalau kepencet luar
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            
-            void hitungTotal() {
-              int hargaObat = int.tryParse(biayaObatCtrl.text) ?? 0;
-              setStateDialog(() {
-                if (isBpjs) {
-                  totalBiaya = 0; 
-                } else {
-                  totalBiaya = biayaAdmin + biayaDokter + biayaOps + (tebusDiRS ? hargaObat : 0);
-                }
-              });
-            }
-
-            return AlertDialog(
-              title: Row(
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Icon(Icons.assignment, color: Colors.teal),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text("Periksa: ${dataBooking['nama_pasien']}", style: const TextStyle(fontSize: 16))),
+                  const Text("Riwayat Rekam Medis", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
                 ],
               ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: isBpjs ? Colors.green : Colors.blue,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          isBpjs ? "PASIEN BPJS (GRATIS)" : "PASIEN REGULAR (BAYAR)",
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: 15),
-
-                      _buildHeader("Data Medis"),
-                      _buildInput(diagnosaCtrl, "Diagnosa", maxLines: 2),
-                      _buildInput(tindakanCtrl, "Tindakan Medis"),
-                      _buildInput(resepCtrl, "Resep Obat", maxLines: 3),
-
-                      const SizedBox(height: 20),
-                      _buildHeader("Rincian Biaya"),
-
-                      _buildBiayaRow("Biaya Admin", biayaAdmin, isBpjs),
-                      _buildBiayaRow("Jasa Dokter", biayaDokter, isBpjs),
-                      _buildBiayaRow("Operasional", biayaOps, isBpjs),
-                      const Divider(),
-
-                      if (isBpjs) 
-                        const ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text("Obat-obatan", style: TextStyle(fontSize: 14)),
-                          trailing: Text("DITANGGUNG BPJS", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                        )
-                      else 
-                        Column(
-                          children: [
-                            SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: const Text("Tebus Obat di Apotek RS?", style: TextStyle(fontSize: 14)),
-                              subtitle: Text(tebusDiRS ? "Masuk tagihan" : "Beli sendiri di luar"),
-                              value: tebusDiRS,
-                              onChanged: (val) {
-                                setStateDialog(() {
-                                  tebusDiRS = val;
-                                  hitungTotal(); 
-                                });
-                              },
-                            ),
-                            if (tebusDiRS)
-                              TextField(
-                                controller: biayaObatCtrl,
-                                keyboardType: TextInputType.number,
-                                onChanged: (val) => hitungTotal(),
-                                decoration: const InputDecoration(labelText: "Harga Obat (Rp)", prefixText: "Rp ", border: OutlineInputBorder(), isDense: true),
-                              ),
-                          ],
-                        ),
-
-                      const SizedBox(height: 15),
-                      Container(
-                        padding: const EdgeInsets.all(15),
-                        decoration: BoxDecoration(color: isBpjs ? Colors.green[50] : Colors.grey[200], borderRadius: BorderRadius.circular(10)),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text("TOTAL TAGIHAN:", style: TextStyle(fontWeight: FontWeight.bold)),
-                            Text(isBpjs ? "GRATIS" : "Rp $totalBiaya", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isBpjs ? Colors.green : Colors.blue[900])),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+              const Divider(thickness: 2),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('bookings')
+                      .where('id_pasien', isEqualTo: widget.dataPasien['id_pasien'])
+                      .where('status', isEqualTo: 'Selesai') 
+                      .orderBy('created_at', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                    var docs = snapshot.data!.docs;
+                    if (docs.isEmpty) return const Center(child: Text("Belum ada riwayat kunjungan."));
+                    return ListView.builder(
+                      itemCount: docs.length,
+                      itemBuilder: (context, index) {
+                        var data = docs[index].data() as Map<String, dynamic>;
+                        if (docs[index].id == widget.bookingId) return const SizedBox();
+                        String tglIndo = _formatTanggalIndo(data['tanggal_booking'].toString().substring(0, 10));
+                        return Card(
+                          child: ListTile(
+                            title: Text(tglIndo, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text("Diagnosa: ${data['hasil_medis']}\nObat: ${data['resep_obat']}"),
+                            trailing: Text(data['poli'] ?? '-'),
+                          ),
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
-                  onPressed: () {
-                    // --- LOGIKA PENENTUAN STATUS AKHIR (PERUBAHAN UTAMA DISINI) ---
-                    String statusAkhir;
-                    
-                    if (isBpjs) {
-                      // Jika BPJS, langsung selesai (karena gratis)
-                      statusAkhir = 'Selesai';
-                    } else {
-                      // Jika Regular, harus bayar dulu
-                      statusAkhir = 'Menunggu Pembayaran';
-                    }
-
-                    FirebaseFirestore.instance.collection('bookings').doc(docId).update({
-                      'diagnosa': diagnosaCtrl.text,
-                      'tindakan': tindakanCtrl.text,
-                      'resep_obat': resepCtrl.text,
-                      'status_tebus_obat': isBpjs ? 'Ditanggung BPJS' : (tebusDiRS ? 'Apotek RS' : 'Beli Luar'),
-                      'biaya_admin': biayaAdmin,
-                      'biaya_dokter': biayaDokter,
-                      'biaya_ops': biayaOps,
-                      'biaya_obat': isBpjs ? 0 : (tebusDiRS ? int.tryParse(biayaObatCtrl.text) ?? 0 : 0),
-                      'biaya': totalBiaya.toString(), 
-                      'hasil_medis': "Diagnosa: ${diagnosaCtrl.text}\nObat: ${resepCtrl.text}",
-                      
-                      // UPDATE STATUS SESUAI LOGIKA DI ATAS
-                      'status': statusAkhir, 
-                    });
-
-                    Navigator.pop(context);
-                    
-                    // Pesan Feedback yang berbeda
-                    if (isBpjs) {
-                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Pemeriksaan BPJS Selesai.")));
-                    } else {
-                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data terkirim. Menunggu pembayaran pasien.")));
-                    }
-                  },
-                  child: const Text("Simpan Data"),
-                ),
-              ],
-            );
-          },
+            ],
+          ),
         );
       },
     );
   }
 
-  Widget _buildHeader(String title) {
-    return Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)));
+  void _simpanPemeriksaan() async {
+    // 1. Validasi Input Kosong
+    if (_diagnosaController.text.isEmpty || _resepController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mohon lengkapi Diagnosa dan Resep.")));
+      return;
+    }
+
+    // 2. VALIDASI BATAS BIAYA DOKTER (Hanya untuk Non-BPJS)
+    if (!isBPJS) {
+      int jasaDokter = int.tryParse(_jasaDokterController.text) ?? 0;
+      if (jasaDokter < 30000) {
+        _showErrorDialog("Biaya Terlalu Rendah", "Minimal Jasa Dokter adalah Rp 30.000");
+        return;
+      }
+      if (jasaDokter > 100000) {
+        _showErrorDialog("Biaya Terlalu Tinggi", "Maksimal Jasa Dokter adalah Rp 100.000");
+        return;
+      }
+    }
+
+    try {
+      await FirebaseFirestore.instance.collection('bookings').doc(widget.bookingId).update({
+        'hasil_medis': _diagnosaController.text, 
+        'resep_obat': _resepController.text,     
+        'catatan_dokter': _catatanController.text,
+        'biaya_jasa_dokter': _jasaDokterController.text,
+        'biaya_admin': _biayaAdminController.text,
+        'biaya_ops': _biayaOpsController.text,
+        'biaya': _totalBiayaController.text, 
+        'status': 'Menunggu Pembayaran',
+        'selesai_pada': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Pemeriksaan Selesai!"), backgroundColor: Colors.green));
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
   }
 
-  Widget _buildInput(TextEditingController controller, String hint, {int maxLines = 1}) {
-    return Padding(padding: const EdgeInsets.only(bottom: 10), child: TextField(controller: controller, maxLines: maxLines, decoration: InputDecoration(labelText: hint, border: const OutlineInputBorder(), isDense: true)));
-  }
-
-  Widget _buildBiayaRow(String label, int value, bool isBpjs) {
-    return Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: const TextStyle(color: Colors.grey)), Text(isBpjs ? "GRATIS" : "Rp $value", style: TextStyle(fontWeight: FontWeight.bold, color: isBpjs ? Colors.green : Colors.black))]));
+  void _showErrorDialog(String title, String msg) {
+    showDialog(
+      context: context, 
+      builder: (c) => AlertDialog(
+        title: Text(title, style: const TextStyle(color: Colors.red)),
+        content: Text(msg),
+        actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text("Perbaiki"))],
+      )
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    var pasien = widget.dataPasien;
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Pasien Saya"), backgroundColor: Colors.teal, foregroundColor: Colors.white),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('bookings')
-            .where('dokter_uid', isEqualTo: currentUser?.uid)
-            .where('status', isEqualTo: 'Disetujui') 
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          var docs = snapshot.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text("Tidak ada pasien antri."));
+      appBar: AppBar(title: const Text("Pemeriksaan Pasien")),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // INFO PASIEN
+            Card(
+              color: isBPJS ? Colors.green[50] : Colors.blue[50],
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: isBPJS ? Colors.green : Colors.blue,
+                  child: const Icon(Icons.person, color: Colors.white),
+                ),
+                title: Text(pasien['nama_pasien'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(isBPJS ? "PASIEN BPJS (GRATIS)" : "PASIEN UMUM (BAYAR)"),
+              ),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+                onPressed: _lihatRiwayatKunjungan,
+                icon: const Icon(Icons.history),
+                label: const Text("LIHAT RIWAYAT MEDIS"),
+            ),
+            
+            const SizedBox(height: 20),
+            const Text("Formulir Medis", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 10),
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(10),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              var data = docs[index].data() as Map<String, dynamic>;
-              bool isBpjs = data['jenis_pasien'] == 'BPJS';
+            TextField(
+              controller: _diagnosaController,
+              decoration: const InputDecoration(labelText: "Diagnosa Penyakit", border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _resepController,
+              decoration: const InputDecoration(labelText: "Resep Obat", border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _catatanController,
+              decoration: const InputDecoration(labelText: "Catatan (Opsional)", border: OutlineInputBorder()),
+            ),
 
-              return Card(
-                margin: const EdgeInsets.only(bottom: 10),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: isBpjs ? Colors.green : Colors.blue,
-                    child: Text(isBpjs ? 'BPJS' : 'REG', style: const TextStyle(color: Colors.white, fontSize: 10)),
-                  ),
-                  title: Text(data['nama_pasien'] ?? 'Pasien', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text("Tgl: ${data['tanggal_booking'].toString().split(' ')[0]}"),
-                  trailing: ElevatedButton(
-                    onPressed: () => _inputMedisLengkap(docs[index].id, data),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
-                    child: const Text("Periksa"),
+            const SizedBox(height: 20),
+            const Divider(thickness: 2),
+            const Text("Rincian Biaya", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 10),
+
+            // --- INPUT JASA DOKTER ---
+            TextField(
+              controller: _jasaDokterController,
+              keyboardType: TextInputType.number,
+              readOnly: isBPJS, 
+              // BATAS INPUT: Maksimal 6 digit (999.999) agar tidak error '4e+33'
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(6), 
+                FilteringTextInputFormatter.digitsOnly
+              ],
+              decoration: InputDecoration(
+                labelText: "Jasa Dokter (Min 30rb - Max 100rb)", 
+                border: const OutlineInputBorder(), 
+                prefixText: "Rp ",
+                errorText: (!isBPJS && (int.tryParse(_jasaDokterController.text) ?? 0) > 100000) ? "Maksimal 100rb!" : null
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _biayaAdminController,
+                    readOnly: true, 
+                    decoration: const InputDecoration(labelText: "Biaya Admin", border: OutlineInputBorder(), prefixText: "Rp ", filled: true),
                   ),
                 ),
-              );
-            },
-          );
-        },
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _biayaOpsController,
+                    readOnly: true,
+                    decoration: const InputDecoration(labelText: "Operasional", border: OutlineInputBorder(), prefixText: "Rp ", filled: true),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _totalBiayaController,
+              readOnly: true, 
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 18),
+              decoration: const InputDecoration(labelText: "TOTAL AKHIR", border: OutlineInputBorder(), prefixText: "Rp "),
+            ),
+            
+            const SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _simpanPemeriksaan,
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                child: const Text("SIMPAN & SELESAI"),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

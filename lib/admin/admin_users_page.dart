@@ -160,65 +160,137 @@ class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProvid
   }
 
   // --- FITUR EDIT USER (PERBAIKAN TIPE DATA) ---
+  // --- FITUR EDIT USER & JADWAL DOKTER (UPGRADE) ---
   void _editUser(Map<String, dynamic> data, String docId, String role) {
     final namaCtrl = TextEditingController(text: data['nama'] ?? data['Nama']);
-    final hariCtrl = TextEditingController();
-    final jamCtrl = TextEditingController();
-    String? selectedPoli;
+    String? selectedPoli = role == 'dokter' ? data['Poli'] : null;
+    
+    // Variabel Jadwal (Default Kosong)
+    TimeOfDay jamBuka = const TimeOfDay(hour: 8, minute: 0);
+    TimeOfDay jamTutup = const TimeOfDay(hour: 16, minute: 0);
+    List<String> hariTerpilih = [];
 
+    // --- LOGIKA LOAD DATA LAMA (MIGRASI OTOMATIS) ---
     if (role == 'dokter') {
-      hariCtrl.text = data['Hari'] ?? '';
-      jamCtrl.text = data['Jam'] ?? '';
-      selectedPoli = data['Poli']; 
+      try {
+        // 1. Load Jam
+        if (data['jam_buka'] != null) {
+          // Format Baru (08:00)
+          var parts = data['jam_buka'].toString().split(':');
+          jamBuka = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+          
+          var parts2 = data['jam_tutup'].toString().split(':');
+          jamTutup = TimeOfDay(hour: int.parse(parts2[0]), minute: int.parse(parts2[1]));
+        } else if (data['Jam'] != null) {
+          // Format Lama (08:00 - 16:00) -> Kita coba ambil angkanya saja
+          // Fallback: Biarkan default 08:00 - 16:00 jika format lama susah diparsing
+        }
+
+        // 2. Load Hari
+        if (data['hari_kerja'] is List) {
+          hariTerpilih = List<String>.from(data['hari_kerja']);
+        } else if (data['Hari'] != null) {
+          // Jika masih format string "Senin - Rabu", biarkan kosong (user set ulang)
+        }
+      } catch (e) {
+        print("Error parsing jadwal lama: $e");
+      }
     }
+
+    final List<String> semuaHari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
+            
+            // Helper Pilih Jam
+            Future<void> pickTime(bool isBuka) async {
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: isBuka ? jamBuka : jamTutup,
+              );
+              if (picked != null) {
+                setStateDialog(() {
+                  if (isBuka) jamBuka = picked; else jamTutup = picked;
+                });
+              }
+            }
+
+            // Helper Format Jam ke String (08:00)
+            String formatTime(TimeOfDay t) {
+              return '${t.hour.toString().padLeft(2,'0')}:${t.minute.toString().padLeft(2,'0')}';
+            }
+
             return AlertDialog(
               title: Text("Edit $role"),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextField(controller: namaCtrl, decoration: const InputDecoration(labelText: "Nama Lengkap")),
                     const SizedBox(height: 15),
                     
+                    // --- KHUSUS DOKTER: EDIT JADWAL ---
                     if (role == 'dokter') ...[
-                       // DROPDOWN DINAMIS (FIXED TYPE ERROR)
-                       StreamBuilder<QuerySnapshot>(
+                        const Text("Spesialis & Jadwal", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                        const SizedBox(height: 10),
+                        
+                        // 1. Edit Poli
+                        StreamBuilder<QuerySnapshot>(
                         stream: FirebaseFirestore.instance.collection('polis').orderBy('nama_poli').snapshots(),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) return const SizedBox();
-                          var listPoli = snapshot.data!.docs;
-                          
-                          // Validasi selectedPoli
-                          bool isValid = listPoli.any((doc) => doc['nama_poli'] == selectedPoli);
-                          if (!isValid) selectedPoli = null;
-
                           return DropdownButtonFormField<String>(
                             value: selectedPoli,
-                            decoration: const InputDecoration(labelText: "Poli Spesialis", border: OutlineInputBorder()),
-                            // PERBAIKAN DI SINI JUGA
-                            items: listPoli.map<DropdownMenuItem<String>>((doc) {
+                            decoration: const InputDecoration(labelText: "Poli", border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5)),
+                            items: snapshot.data!.docs.map((doc) {
                                var pData = doc.data() as Map<String, dynamic>;
-                               return DropdownMenuItem<String>(
-                                 value: pData['nama_poli'].toString(), 
-                                 child: Text(pData['nama_poli'].toString())
-                               );
+                               return DropdownMenuItem(value: pData['nama_poli'] as String, child: Text(pData['nama_poli']));
                             }).toList(),
                             onChanged: (val) => setStateDialog(() => selectedPoli = val),
                           );
                         },
                       ),
+                      const SizedBox(height: 15),
+
+                      // 2. Edit Jam
+                      const Text("Jam Praktik:", style: TextStyle(fontSize: 12)),
+                      Row(
+                        children: [
+                          Expanded(child: OutlinedButton(onPressed: () => pickTime(true), child: Text(formatTime(jamBuka)))),
+                          const Padding(padding: EdgeInsets.symmetric(horizontal: 5), child: Text("-")),
+                          Expanded(child: OutlinedButton(onPressed: () => pickTime(false), child: Text(formatTime(jamTutup)))),
+                        ],
+                      ),
                       const SizedBox(height: 10),
-                      TextField(controller: hariCtrl, decoration: const InputDecoration(labelText: "Hari Praktik")),
-                      TextField(controller: jamCtrl, decoration: const InputDecoration(labelText: "Jam Praktik")),
+
+                      // 3. Edit Hari (Chips)
+                      const Text("Hari Praktik:", style: TextStyle(fontSize: 12)),
+                      Wrap(
+                        spacing: 5,
+                        children: semuaHari.map((hari) {
+                          bool isSelected = hariTerpilih.contains(hari);
+                          return FilterChip(
+                            label: Text(hari, style: TextStyle(fontSize: 10, color: isSelected ? Colors.white : Colors.black)),
+                            selected: isSelected,
+                            selectedColor: Colors.blue,
+                            checkmarkColor: Colors.white,
+                            onSelected: (bool selected) {
+                              setStateDialog(() {
+                                if (selected) {
+                                  hariTerpilih.add(hari);
+                                } else {
+                                  hariTerpilih.remove(hari);
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
                     ],
-                    const SizedBox(height: 20),
-                     SizedBox(width: double.infinity, child: OutlinedButton.icon(icon: const Icon(Icons.lock_reset, color: Colors.red), label: const Text("Kirim Reset Password", style: TextStyle(color: Colors.red)), onPressed: () async { if(data['email'] != null) await FirebaseAuth.instance.sendPasswordResetEmail(email: data['email']); })),
                   ],
                 ),
               ),
@@ -226,15 +298,31 @@ class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProvid
                 TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
                 ElevatedButton(
                   onPressed: () async {
+                    // Validasi Sederhana
+                    if (role == 'dokter' && hariTerpilih.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Pilih minimal 1 hari kerja!")));
+                      return;
+                    }
+
+                    // Update Users Collection (Nama saja)
                     await FirebaseFirestore.instance.collection('users').doc(docId).update({'nama': namaCtrl.text});
+                    
+                    // Update Doctors Collection (Lengkap dengan Jadwal Baru)
                     if (role == 'dokter') {
                       await FirebaseFirestore.instance.collection('doctors').doc(docId).update({
-                        'nama': namaCtrl.text, 'Nama': namaCtrl.text, 'Poli': selectedPoli, 'Hari': hariCtrl.text, 'Jam': jamCtrl.text,
+                        'nama': namaCtrl.text, 
+                        'Nama': namaCtrl.text, 
+                        'Poli': selectedPoli,
+                        
+                        // UPDATE KE FORMAT BARU (REAL-TIME SUPPORT)
+                        'jam_buka': formatTime(jamBuka),
+                        'jam_tutup': formatTime(jamTutup),
+                        'hari_kerja': hariTerpilih,
                       });
                     }
                     if (mounted) Navigator.pop(context);
                   },
-                  child: const Text("Simpan"),
+                  child: const Text("Simpan Perubahan"),
                 ),
               ],
             );
