@@ -46,13 +46,14 @@ class _PasienPilihDokterState extends State<PasienPilihDokter> {
     }
   }
 
-  // --- 2. LOGIKA BOOKING (Sama seperti sebelumnya) ---
+  // --- 2. LOGIKA BOOKING (Input Keluhan & Cek Double Booking) ---
   void _cekDanProsesBooking(String dokterId, String namaDokter) async {
     User? user = _auth.currentUser;
     if (user == null) return;
     showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator()));
 
     try {
+      // Cek apakah ada bookingan aktif?
       var cekBooking = await FirebaseFirestore.instance
           .collection('bookings')
           .where('id_pasien', isEqualTo: user.uid)
@@ -65,6 +66,7 @@ class _PasienPilihDokterState extends State<PasienPilihDokter> {
         var dataLama = cekBooking.docs.first.data();
         _showWarningDialog(dataLama['nama_dokter'] ?? 'Lain');
       } else {
+        // Tampilkan Popup Input Keluhan
         _showKonfirmasiBooking(dokterId, namaDokter);
       }
     } catch (e) {
@@ -84,24 +86,50 @@ class _PasienPilihDokterState extends State<PasienPilihDokter> {
     );
   }
 
+  // DIALOG KONFIRMASI + INPUT KELUHAN
   void _showKonfirmasiBooking(String dokterId, String namaDokter) {
+    final keluhanCtrl = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Konfirmasi"),
-        content: Text("Mendaftar ke $namaDokter?"),
+        title: const Text("Formulir Pendaftaran"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Dokter: $namaDokter", style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            const Text("Keluhan Utama:", style: TextStyle(fontSize: 12, color: Colors.grey)),
+            TextField(
+              controller: keluhanCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: "Contoh: Demam tinggi sudah 3 hari, pusing...",
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
           ElevatedButton(
-            onPressed: () { Navigator.pop(context); _simpanBookingKeFirebase(dokterId, namaDokter); },
-            child: const Text("Ya, Daftar"),
+            onPressed: () {
+              if (keluhanCtrl.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Isi keluhan dulu!")));
+                return;
+              }
+              Navigator.pop(context); 
+              _simpanBookingKeFirebase(dokterId, namaDokter, keluhanCtrl.text); // Kirim Keluhan
+            },
+            child: const Text("Daftar Antrian"),
           ),
         ],
       ),
     );
   }
 
-  void _simpanBookingKeFirebase(String dokterId, String namaDokter) async {
+  void _simpanBookingKeFirebase(String dokterId, String namaDokter, String keluhan) async {
     User? user = _auth.currentUser;
     if (user == null) return;
     try {
@@ -119,6 +147,12 @@ class _PasienPilihDokterState extends State<PasienPilihDokter> {
         'id_pasien': user.uid,
         'nama_pasien': userData['nama'] ?? 'Pasien',
         'nomor_bpjs': userData['nomor_bpjs'] ?? '-',
+        // DATA BARU:
+        'keluhan': keluhan, 
+        'jenis_kelamin': userData['jenis_kelamin'] ?? '-',
+        'umur': _hitungUmur(userData['tanggal_lahir'] ?? '-'),
+        'alamat': userData['alamat'] ?? '-',
+        // ---------
         'dokter_uid': dokterId,
         'nama_dokter': namaDokter,
         'poli': widget.namaPoli,
@@ -138,7 +172,15 @@ class _PasienPilihDokterState extends State<PasienPilihDokter> {
     }
   }
 
-  // --- HELPER TIME ---
+  // --- HELPER FUNCTIONS ---
+  String _hitungUmur(String tgl) {
+    if (tgl == '-' || tgl.isEmpty) return '-';
+    try {
+      int age = DateTime.now().year - DateTime.parse(tgl).year;
+      return "$age Thn";
+    } catch (e) { return '-'; }
+  }
+
   TimeOfDay _parseTime(String timeStr) {
     try {
       List<String> parts = timeStr.split(':');
@@ -152,36 +194,25 @@ class _PasienPilihDokterState extends State<PasienPilihDokter> {
     return hari[weekday - 1];
   }
 
-  // --- [FITUR BARU] HELPER FORMAT HARI PINTAR ---
   String _formatJadwalPintar(dynamic rawData) {
-    if (rawData is! List) return rawData.toString(); // Kalau format lama, kembalikan string aslinya
-    
+    if (rawData is! List) return rawData.toString();
     List<String> hari = List<String>.from(rawData);
     if (hari.isEmpty) return "-";
 
-    // Urutan Hari Standar
     const urutan = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-    
-    // Urutkan hari berdasarkan urutan minggu (biar Senin selalu duluan)
     hari.sort((a, b) => urutan.indexOf(a).compareTo(urutan.indexOf(b)));
 
-    // Cek apakah hari berurutan? (Contoh: Senin, Selasa, Rabu)
     bool berurutan = true;
     for (int i = 0; i < hari.length - 1; i++) {
-      int indexSekarang = urutan.indexOf(hari[i]);
-      int indexBerikut = urutan.indexOf(hari[i+1]);
-      if (indexBerikut != indexSekarang + 1) {
+      if (urutan.indexOf(hari[i+1]) != urutan.indexOf(hari[i]) + 1) {
         berurutan = false;
         break;
       }
     }
 
-    // Jika Berurutan dan lebih dari 2 hari -> Pakai Strip "-"
     if (berurutan && hari.length > 2) {
       return "${hari.first} - ${hari.last}";
-    } 
-    // Jika cuma 2 hari atau acak (Senin, Kamis) -> Pakai Koma
-    else {
+    } else {
       return hari.join(', ');
     }
   }
@@ -194,11 +225,12 @@ class _PasienPilihDokterState extends State<PasienPilihDokter> {
         stream: FirebaseFirestore.instance
             .collection('doctors')
             .where('Poli', isEqualTo: widget.namaPoli)
+            .where('is_active', isEqualTo: true) // <--- HANYA DOKTER AKTIF YG MUNCUL
             .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           var docs = snapshot.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text("Belum ada dokter."));
+          if (docs.isEmpty) return const Center(child: Text("Belum ada dokter aktif."));
 
           return ListView.builder(
             itemCount: docs.length,
@@ -207,20 +239,8 @@ class _PasienPilihDokterState extends State<PasienPilihDokter> {
               var data = docs[index].data() as Map<String, dynamic>;
               bool isBuka = _isDokterBuka(data); 
 
-              // --- GUNAKAN FORMATTER PINTAR DI SINI ---
-              String jadwalHari = "";
-              if (data['hari_kerja'] is List) {
-                 jadwalHari = _formatJadwalPintar(data['hari_kerja']); // <--- INI PERUBAHANNYA
-              } else {
-                 jadwalHari = data['Hari'] ?? '-';
-              }
-
-              String jadwalJam = "";
-              if (data['jam_buka'] != null) {
-                jadwalJam = "${data['jam_buka']} - ${data['jam_tutup']}";
-              } else {
-                jadwalJam = data['Jam'] ?? '-';
-              }
+              String jadwalHari = (data['hari_kerja'] is List) ? _formatJadwalPintar(data['hari_kerja']) : (data['Hari'] ?? '-');
+              String jadwalJam = (data['jam_buka'] != null) ? "${data['jam_buka']} - ${data['jam_tutup']}" : (data['Jam'] ?? '-');
 
               return Card(
                 color: isBuka ? Colors.white : Colors.grey[200],
