@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'auth/login_page.dart'; 
+import '../auth/login_page.dart'; 
 import 'pasien/pasien_pilih_dokter.dart'; 
+import 'pasien/pasien_jadwal_page.dart'; 
+// Import Halaman Notifikasi
+import 'pasien/pasien_notifikasi_page.dart'; 
 
 class PasienHomePage extends StatefulWidget {
   const PasienHomePage({super.key});
@@ -128,14 +131,14 @@ class _PasienHomePageState extends State<PasienHomePage> {
                 'tanggal_lahir': tglCtrl.text,
                 'nomor_bpjs': bpjsCtrl.text,
                 'nik': nikCtrl.text,
-                'nama': namaUser, // Pertahankan nama lama
+                'nama': namaUser, 
                 'email': emailUser,
                 'uid': user!.uid,
-              }, SetOptions(merge: true)); // Merge agar data lain tidak hilang
+              }, SetOptions(merge: true));
 
               if (mounted) {
                 Navigator.pop(context);
-                _getLengkapDataUser(); // Refresh Tampilan
+                _getLengkapDataUser(); 
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data Berhasil Disimpan!")));
               }
             },
@@ -213,55 +216,9 @@ class _PasienHomePageState extends State<PasienHomePage> {
     );
   }
 
-  // --- TAB 2: RIWAYAT ---
+  // --- TAB 2: RIWAYAT / JADWAL ---
   Widget _buildRiwayatTab() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('bookings').where('id_pasien', isEqualTo: user?.uid).orderBy('created_at', descending: true).snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        var docs = snapshot.data!.docs;
-        if (docs.isEmpty) return const Center(child: Text("Belum ada riwayat."));
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(10),
-          itemCount: docs.length,
-          itemBuilder: (context, index) {
-            var data = docs[index].data() as Map<String, dynamic>;
-            String status = data['status'] ?? 'Menunggu';
-            Color statusColor = status == 'Disetujui' ? Colors.green : (status == 'Selesai' ? Colors.blue : (status == 'Ditolak' ? Colors.red : Colors.orange));
-            
-            return Card(
-              margin: const EdgeInsets.only(bottom: 15),
-              child: Padding(
-                padding: const EdgeInsets.all(15),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        CircleAvatar(backgroundColor: statusColor.withOpacity(0.2), child: Icon(Icons.medical_services, color: statusColor)),
-                        const SizedBox(width: 15),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(data['nama_dokter'] ?? 'Dokter', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text(data['poli'] ?? 'Poli', style: const TextStyle(color: Colors.grey)),
-                        ])),
-                        Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(20)), child: Text(status, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))),
-                      ],
-                    ),
-                    const Divider(height: 25),
-                    if (status == 'Disetujui' || status == 'Selesai') ...[
-                      const Text("NOMOR ANTRIAN ANDA", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                      Text(data['nomor_antrian'] ?? 'A-???', style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: statusColor)),
-                    ] else ...[
-                       const Text("Sedang Menunggu...", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-                    ]
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
+    return const PasienJadwalPage(); 
   }
 
   // --- TAB 3: PROFIL ---
@@ -270,7 +227,6 @@ class _PasienHomePageState extends State<PasienHomePage> {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          // Header Profil
           const CircleAvatar(radius: 50, backgroundColor: Colors.blue, child: Icon(Icons.person, size: 50, color: Colors.white)),
           const SizedBox(height: 15),
           Text(namaUser, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
@@ -280,16 +236,13 @@ class _PasienHomePageState extends State<PasienHomePage> {
           Container(padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5), decoration: BoxDecoration(color: jenisPasien == "BPJS" ? Colors.green : Colors.blue, borderRadius: BorderRadius.circular(20)), child: Text("Pasien $jenisPasien", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
           
           const SizedBox(height: 20),
-          
-          // TOMBOL EDIT (BARU)
           OutlinedButton.icon(
-            onPressed: _editProfilSelf, // <--- Panggil fungsi edit
+            onPressed: _editProfilSelf,
             icon: const Icon(Icons.edit),
             label: const Text("Lengkapi Data & Tgl Lahir"),
           ),
 
           const SizedBox(height: 20),
-
           Card(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             child: Padding(
@@ -324,11 +277,74 @@ class _PasienHomePageState extends State<PasienHomePage> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> pages = [_buildHomeTab(), _buildRiwayatTab(), _buildProfilTab()];
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(title: Text(_selectedIndex == 0 ? "Halo, $namaUser" : (_selectedIndex == 1 ? "Riwayat" : "Profil")), backgroundColor: Colors.blue[800], foregroundColor: Colors.white, automaticallyImplyLeading: false),
+      
+      appBar: _selectedIndex == 1 
+          ? null 
+          : AppBar(
+              title: Text(_selectedIndex == 0 ? "Halo, $namaUser" : "Profil Saya"), 
+              backgroundColor: Colors.blue[800], 
+              foregroundColor: Colors.white, 
+              automaticallyImplyLeading: false,
+
+              // --- BAGIAN INI YANG TADI HILANG ---
+              // Tombol Lonceng Notifikasi
+              actions: [
+                if (_selectedIndex == 0) 
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('notifications')
+                        .where('user_id', isEqualTo: user?.uid)
+                        .where('is_read', isEqualTo: false) // Cari notif baru
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      bool adaNotif = false;
+                      if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                        adaNotif = true;
+                      }
+
+                      return Stack(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.notifications),
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (c) => const PasienNotifikasiPage()));
+                            },
+                          ),
+                          if (adaNotif)
+                            Positioned(
+                              right: 11,
+                              top: 11,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)),
+                                constraints: const BoxConstraints(minWidth: 12, minHeight: 12),
+                              ),
+                            )
+                        ],
+                      );
+                    }
+                  ),
+                  const SizedBox(width: 10),
+              ],
+              // -----------------------------------
+            ),
+      
       body: pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(currentIndex: _selectedIndex, onTap: (index) => setState(() => _selectedIndex = index), selectedItemColor: Colors.blue[800], unselectedItemColor: Colors.grey, items: const [BottomNavigationBarItem(icon: Icon(Icons.home), label: "Beranda"), BottomNavigationBarItem(icon: Icon(Icons.history), label: "Antrian"), BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profil")]),
+      
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex, 
+        onTap: (index) => setState(() => _selectedIndex = index), 
+        selectedItemColor: Colors.blue[800], 
+        unselectedItemColor: Colors.grey, 
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Beranda"), 
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: "Antrian"), 
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profil")
+        ]
+      ),
     );
   }
 }

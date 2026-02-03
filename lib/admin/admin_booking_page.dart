@@ -11,17 +11,26 @@ class AdminBookingPage extends StatefulWidget {
 class _AdminBookingPageState extends State<AdminBookingPage> {
   // --- HELPER DATE ---
   String _getTanggalHariIni() {
-    return DateTime.now().toString().substring(0, 10); // Format YYYY-MM-DD
+    return DateTime.now().toString().substring(0, 10); 
   }
 
-  // --- VALIDASI JADWAL (Sederhana) ---
-  bool _isDokterBuka(String hari, String jam) { return true; }
+  // --- 1. FUNGSI KIRIM NOTIFIKASI (WAJIB ADA) ---
+  void _kirimNotif(String uidPasien, String judul, String isi, String tipe) {
+    if (uidPasien.isEmpty) return; // Jaga-jaga kalau pasien offline tanpa UID
+    FirebaseFirestore.instance.collection('notifications').add({
+      'user_id': uidPasien,
+      'title': judul,
+      'body': isi,
+      'type': tipe, // 'booking', 'payment', 'medical'
+      'is_read': false,
+      'created_at': FieldValue.serverTimestamp(),
+    });
+  }
 
   // --- GENERATE NOMOR ANTRIAN ---
   Future<String> _generateNoAntrian() async {
     try {
       String today = _getTanggalHariIni();
-      
       QuerySnapshot snapshot = await FirebaseFirestore.instance
           .collection('bookings')
           .where('status', isEqualTo: 'Disetujui')
@@ -31,84 +40,61 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
       for (var doc in snapshot.docs) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         String tglBooking = data['tanggal_booking'].toString();
-        // Cek apakah tanggal booking mengandung string tanggal hari ini
-        if (tglBooking.contains(today)) {
-          countHariIni++;
-        }
+        if (tglBooking.contains(today)) countHariIni++;
       }
-      
       int urutan = countHariIni + 1; 
-      return "A-${urutan.toString().padLeft(3, '0')}"; // Hasil: A-001
-      
+      return "A-${urutan.toString().padLeft(3, '0')}"; 
     } catch (e) {
-      return "A-001"; // Fallback
+      return "A-001"; 
     }
   }
 
-  // --- [FITUR BARU] TOMBOL PERBAIKI DATA HILANG ---
+  // --- FITUR FIX DATA ---
   void _fixDataAntrianHilang() async {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sedang memperbaiki data... mohon tunggu.")));
-    
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sedang memperbaiki data...")));
     try {
-      // Ambil semua yang statusnya DISETUJUI tapi TIDAK PUNYA nomor antrian
-      var snapshot = await FirebaseFirestore.instance.collection('bookings')
-          .where('status', isEqualTo: 'Disetujui')
-          .get();
-
+      var snapshot = await FirebaseFirestore.instance.collection('bookings').where('status', isEqualTo: 'Disetujui').get();
       int fixedCount = 0;
-      
       for (var doc in snapshot.docs) {
         var data = doc.data();
-        // Cek manual jika field nomor_antrian tidak ada atau null
         if (data['nomor_antrian'] == null || data['nomor_antrian'] == '') {
-          // Buatkan nomor baru
           String noBaru = await _generateNoAntrian();
-          
-          // Update dokumen tersebut
-          await FirebaseFirestore.instance.collection('bookings').doc(doc.id).update({
-            'nomor_antrian': noBaru
-          });
+          await FirebaseFirestore.instance.collection('bookings').doc(doc.id).update({'nomor_antrian': noBaru});
           fixedCount++;
         }
       }
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("Selesai! $fixedCount antrian berhasil diperbaiki."),
-          backgroundColor: Colors.green,
-        ));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Selesai! $fixedCount data diperbaiki."), backgroundColor: Colors.green));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error fix: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
-  // --- FUNGSI UPDATE STATUS ---
-  void _updateStatus(String docId, String newStatus) async {
+  // --- FUNGSI UPDATE STATUS (DENGAN NOTIFIKASI) ---
+  void _updateStatus(String docId, String newStatus, String uidPasien) async {
     if (newStatus == 'Selesai') return; 
 
-    // Tampilkan Loading
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Memproses..."), duration: Duration(milliseconds: 500)));
-
     Map<String, dynamic> dataUpdate = {'status': newStatus};
+    String pesanNotif = "";
 
     // Jika Disetujui, Generate Nomor
     if (newStatus == 'Disetujui') {
       String noAntrian = await _generateNoAntrian();
       dataUpdate['nomor_antrian'] = noAntrian;
+      pesanNotif = "Booking Dikonfirmasi! No Antrian: $noAntrian";
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("Nomor Antrian Dibuat: $noAntrian"),
-          backgroundColor: Colors.green,
-        ));
-      }
+      // Kirim Notif Terima
+      _kirimNotif(uidPasien, "Booking Diterima", "Silakan datang sesuai jadwal. No: $noAntrian", "booking");
+    } 
+    else if (newStatus == 'Ditolak') {
+      // Kirim Notif Tolak
+      _kirimNotif(uidPasien, "Booking Ditolak", "Mohon maaf, jadwal penuh atau dokter berhalangan.", "info");
     }
 
     await FirebaseFirestore.instance.collection('bookings').doc(docId).update(dataUpdate);
   }
 
-  // --- FUNGSI BOOKING MANUAL ---
+  // --- FUNGSI BOOKING MANUAL (Offline) ---
   void _tambahBookingOffline() {
     String? selectedPasienId;
     Map<String, dynamic>? selectedPasienData;
@@ -127,13 +113,12 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                     StreamBuilder<QuerySnapshot>(
+                      StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance.collection('users').where('role', isEqualTo: 'pasien').snapshots(),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) return const LinearProgressIndicator();
                         return DropdownButtonFormField<String>(
-                          isExpanded: true,
-                          hint: const Text("Pilih Pasien"),
+                          isExpanded: true, hint: const Text("Pilih Pasien"),
                           items: snapshot.data!.docs.map((doc) {
                              var data = doc.data() as Map<String, dynamic>;
                              return DropdownMenuItem(value: doc.id, onTap: () => selectedPasienData = data, child: Text(data['nama'] ?? '-'));
@@ -148,12 +133,8 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) return const SizedBox();
                         return DropdownButtonFormField<String>(
-                          isExpanded: true,
-                          hint: const Text("Pilih Poli"),
-                          items: snapshot.data!.docs.map((doc) {
-                             var data = doc.data() as Map<String, dynamic>;
-                             return DropdownMenuItem(value: data['nama_poli'] as String, child: Text(data['nama_poli']));
-                          }).toList(),
+                          isExpanded: true, hint: const Text("Pilih Poli"),
+                          items: snapshot.data!.docs.map((doc) => DropdownMenuItem(value: doc['nama_poli'] as String, child: Text(doc['nama_poli']))).toList(),
                           onChanged: (val) => setStateDialog(() { selectedPoli = val; selectedDokterId = null; }),
                         );
                       },
@@ -165,8 +146,7 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) return const SizedBox();
                           return DropdownButtonFormField<String>(
-                            isExpanded: true,
-                            hint: const Text("Pilih Dokter"),
+                            isExpanded: true, hint: const Text("Pilih Dokter"),
                             items: snapshot.data!.docs.map((doc) {
                                var data = doc.data() as Map<String, dynamic>;
                                return DropdownMenuItem(value: doc.id, onTap: () => selectedDokterData = data, child: Text(data['Nama'] ?? '-'));
@@ -204,6 +184,9 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
                       'biaya': '0',
                     });
                     
+                    // KIRIM NOTIFIKASI JUGA UTK BOOKING MANUAL
+                    _kirimNotif(selectedPasienId!, "Booking Dibuat Admin", "Admin telah mendaftarkan antrian A-$noAntrian untuk Anda.", "booking");
+
                     if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Sukses! Antrian: $noAntrian")));
                   },
                   child: const Text("Simpan"),
@@ -216,8 +199,8 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
     );
   }
 
-  // --- DIALOG PEMBAYARAN ---
-  void _dialogProsesPembayaran(String docId, String namaPasien, String totalBiaya) {
+  // --- DIALOG PEMBAYARAN (DENGAN NOTIFIKASI) ---
+  void _dialogProsesPembayaran(String docId, String namaPasien, String totalBiaya, String uidPasien) {
     String metode = 'Tunai';
     showDialog(
       context: context,
@@ -236,7 +219,12 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
         actions: [
           ElevatedButton(
             onPressed: () {
+               // Update Lunas
                FirebaseFirestore.instance.collection('bookings').doc(docId).update({'status': 'Selesai', 'metode_bayar': metode, 'tgl_bayar': DateTime.now().toString()});
+               
+               // KIRIM NOTIFIKASI LUNAS
+               _kirimNotif(uidPasien, "Pembayaran Lunas", "Terima kasih. Pembayaran via $metode telah diterima.", "payment");
+
                Navigator.pop(c);
             },
             child: const Text("LUNAS"),
@@ -267,15 +255,10 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Kasir & Antrian"), 
-        backgroundColor: Colors.blue, 
+        backgroundColor: Colors.blue[900], 
         foregroundColor: Colors.white,
         actions: [
-          // --- TOMBOL PERBAIKAN (OBENG) ---
-          IconButton(
-            icon: const Icon(Icons.build),
-            tooltip: "Perbaiki Nomor Antrian Hilang",
-            onPressed: _fixDataAntrianHilang, // <--- Panggil fungsi perbaikan
-          )
+          IconButton(icon: const Icon(Icons.build), tooltip: "Perbaiki Nomor Antrian Hilang", onPressed: _fixDataAntrianHilang)
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -290,7 +273,8 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
             itemBuilder: (context, index) {
               var data = docs[index].data() as Map<String, dynamic>;
               String status = data['status'] ?? 'Menunggu';
-              
+              String uidPasien = data['id_pasien'] ?? ''; // PENTING: Ambil UID Pasien
+
               return Card(
                 child: ListTile(
                   title: Text(data['nama_pasien'] ?? 'Pasien'),
@@ -299,15 +283,13 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
                     children: [
                       Text("${data['poli']} - Dr. ${data['nama_dokter']}"),
                       Text("Status: $status", style: TextStyle(color: status == 'Disetujui' ? Colors.blue : Colors.grey)),
-                      // INDIKATOR NOMOR ANTRIAN
                       if (data['nomor_antrian'] != null)
-                         Text("NO ANTRIAN: ${data['nomor_antrian']}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))
-                      else if (status == 'Disetujui')
-                         const Text("NO ANTRIAN: (Hilang)", style: TextStyle(color: Colors.red, fontStyle: FontStyle.italic))
+                          Text("NO ANTRIAN: ${data['nomor_antrian']}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))
                     ],
                   ),
                   isThreeLine: true,
-                  trailing: _buildAction(status, docs[index].id, data),
+                  // PENTING: Pass uidPasien ke _buildAction
+                  trailing: _buildAction(status, docs[index].id, data, uidPasien),
                 ),
               );
             },
@@ -318,10 +300,11 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
     );
   }
 
-  Widget? _buildAction(String status, String docId, Map<String, dynamic> data) {
+  // --- BUILD ACTION (DENGAN UID PASIEN) ---
+  Widget? _buildAction(String status, String docId, Map<String, dynamic> data, String uidPasien) {
     if (status == 'Menunggu Konfirmasi') {
       return PopupMenuButton<String>(
-        onSelected: (val) => _updateStatus(docId, val),
+        onSelected: (val) => _updateStatus(docId, val, uidPasien), // Pass uidPasien
         itemBuilder: (context) => [
           const PopupMenuItem(value: 'Disetujui', child: Text("Terima Booking")),
           const PopupMenuItem(value: 'Ditolak', child: Text("Tolak")),
@@ -329,7 +312,7 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
       );
     }
     if (status == 'Menunggu Pembayaran') {
-      return IconButton(icon: const Icon(Icons.payment, color: Colors.green), onPressed: () => _dialogProsesPembayaran(docId, data['nama_pasien'], data['biaya'] ?? '0'));
+      return IconButton(icon: const Icon(Icons.payment, color: Colors.green), onPressed: () => _dialogProsesPembayaran(docId, data['nama_pasien'], data['biaya'] ?? '0', uidPasien)); // Pass uidPasien
     }
     if (status == 'Selesai') {
       return IconButton(icon: const Icon(Icons.print), onPressed: () => _cetakStruk(data));

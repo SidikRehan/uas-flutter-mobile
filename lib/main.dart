@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart'; 
-// 👇 INI PENTING: Import halaman login yang sudah kamu buat
+import 'package:flutter/foundation.dart';
+// 1. TAMBAH IMPORT INI (WAJIB ADA)
+import 'package:intl/date_symbol_data_local.dart'; 
+
 import 'auth/login_page.dart'; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // --- BAGIAN KONEKSI FIREBASE (JANGAN DIUBAH) ---
+  // --- BAGIAN KONEKSI FIREBASE (User Anda) ---
   if (kIsWeb) {
     await Firebase.initializeApp(
       options: const FirebaseOptions(
@@ -23,7 +25,10 @@ void main() async {
     // Untuk Android (otomatis baca google-services.json)
     await Firebase.initializeApp();
   }
-  // -----------------------------------------------
+  
+  // 2. TAMBAHKAN KODE INI (SOLUSI ERROR MERAH)
+  // Ini menyiapkan format tanggal Indonesia ('id_ID') sebelum aplikasi jalan
+  await initializeDateFormatting('id_ID', null); 
 
   runApp(const MyApp());
 }
@@ -34,14 +39,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false, // Hilangkan pita "Debug" di pojok
+      debugShowCheckedModeBanner: false, 
       title: 'Rumah Sakit App',
       theme: ThemeData(
-        primarySwatch: Colors.blue, // Tema warna biru
+        primarySwatch: Colors.blue, 
         useMaterial3: true,
       ),
-      // 👇 DISINI KITA GANTI TAMPILANNYA
-      // Tadinya "Scaffold(body: Center...)" sekarang jadi "LoginPage()"
       home: const LoginPage(),
     );
   }

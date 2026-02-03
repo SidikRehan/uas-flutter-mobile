@@ -15,14 +15,17 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # --- FIREBASE UTAMA (Versi Angka) ---
-  firebase_core: ^3.10.1 # Versi stabil terbaru yang kompatibel dengan package lain
+  firebase_core: ^3.10.1 # Versi stabil terbaru
   firebase_auth: ^5.4.1
   cloud_firestore: ^5.6.1
 
   # --- TAMBAHAN UNTUK FOTO ---
   firebase_storage: ^12.4.1
   image_picker: ^1.0.7
+  
+  # --- FORMATTING & FONT (PENTING UNTUK UI BAGUS) ---
   intl: ^0.20.2
+  google_fonts: ^6.1.0  # <--- INI BARIS BARU YANG KITA TAMBAH
 
 dev_dependencies:
   flutter_test:
