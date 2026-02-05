@@ -7,6 +7,7 @@ import '../auth/login_page.dart';
 import 'admin_users_page.dart'; // Fitur Tambah Admin SUDAH ADA di sini (Tab ke-3)
 import 'admin_booking_page.dart';
 import 'admin_laporan_page.dart';
+import 'admin_medical_history.dart';
 
 class AdminHomePage extends StatefulWidget {
   const AdminHomePage({super.key});
@@ -130,6 +131,13 @@ class _AdminHomePageState extends State<AdminHomePage> {
         "icon": Icons.insert_chart_rounded,
         "color": const Color(0xFF48CAE4), // Cyan
         "page": const AdminLaporanPage(),
+      },
+      {
+        "title": "Rekam Medis",
+        "subtitle": "Riwayat Periksa Pasien",
+        "icon": Icons.assignment_turned_in_rounded,
+        "color": const Color(0xFF20B2AA), // Light Sea Green
+        "page": const AdminMedicalHistory(),
       },
     ];
 
