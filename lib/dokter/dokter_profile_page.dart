@@ -27,31 +27,34 @@ class _DokterProfilePageState extends State<DokterProfilePage> {
   void _getDokterData() async {
     if (user != null) {
       setState(() => email = user!.email ?? "-");
-      
+
       try {
-        var doc = await FirebaseFirestore.instance.collection('doctors').doc(user!.uid).get();
+        var doc = await FirebaseFirestore.instance
+            .collection('doctors')
+            .doc(user!.uid)
+            .get();
         if (doc.exists) {
           var data = doc.data()!;
           setState(() {
             nama = data['Nama'] ?? "Dokter";
             poli = data['Poli'] ?? "-";
-            
+
             // Format Jadwal
             if (data['hari_kerja'] is List) {
-               hari = (data['hari_kerja'] as List).join(', ');
+              hari = (data['hari_kerja'] as List).join(', ');
             } else {
-               hari = data['Hari'] ?? '-';
+              hari = data['Hari'] ?? '-';
             }
-            
+
             if (data['jam_buka'] != null) {
-               jam = "${data['jam_buka']} - ${data['jam_tutup']}";
+              jam = "${data['jam_buka']} - ${data['jam_tutup']}";
             } else {
-               jam = data['Jam'] ?? '-';
+              jam = data['Jam'] ?? '-';
             }
           });
         }
       } catch (e) {
-        print("Error: $e");
+        // print("Error: $e");
       }
     }
   }
@@ -70,59 +73,152 @@ class _DokterProfilePageState extends State<DokterProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Profil Saya"), automaticallyImplyLeading: false),
+      backgroundColor: const Color(0xFFF8F9FA), // Clean Background
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            const SizedBox(height: 20),
-            // Foto Profil
-            const CircleAvatar(
-              radius: 60,
-              backgroundColor: Colors.blue,
-              child: Icon(Icons.person, size: 60, color: Colors.white),
+            // HEADER GRADIENT
+            Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  height: 240,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF0077B6), Color(0xFF00B4D8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.vertical(
+                      bottom: Radius.circular(32),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: -50,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const CircleAvatar(
+                      radius: 60,
+                      backgroundColor: Color(0xFF0077B6),
+                      child: Icon(Icons.person, size: 60, color: Colors.white),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 50,
+                  right: 20,
+                  child: IconButton(
+                    onPressed: _logout,
+                    icon: const Icon(Icons.logout_rounded, color: Colors.white),
+                    tooltip: "Keluar Aplikasi",
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-            
-            // Nama & Poli
-            Text(nama, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-            Text("Spesialis $poli", style: const TextStyle(fontSize: 16, color: Colors.grey)),
-            
+
+            const SizedBox(height: 60),
+
+            // NAMA & POLI
+            Text(
+              nama,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF03045E),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                "Spesialis $poli",
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF0077B6),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
             const SizedBox(height: 30),
 
-            // Info Detail
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(15.0),
+            // INFO DETAIL CARD
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withValues(alpha: 0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
                 child: Column(
                   children: [
-                    _buildRow(Icons.email, "Email", email),
-                    const Divider(),
-                    _buildRow(Icons.calendar_today, "Hari Praktik", hari),
-                    const Divider(),
-                    _buildRow(Icons.access_time, "Jam Praktik", jam),
+                    _buildRow(Icons.email_outlined, "Email", email),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Divider(height: 1),
+                    ),
+                    _buildRow(
+                      Icons.calendar_month_outlined,
+                      "Hari Praktik",
+                      hari,
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Divider(height: 1),
+                    ),
+                    _buildRow(Icons.access_time_rounded, "Jam Praktik", jam),
                   ],
                 ),
               ),
             ),
 
-            const SizedBox(height: 40),
+            const SizedBox(height: 30),
 
-            // TOMBOL LOGOUT
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red, // Merah tanda keluar
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            // TOMBOL LOGOUT BIG
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.red,
+                    elevation: 0,
+                    side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: _logout,
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text(
+                    "KELUAR APLIKASI",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
-                onPressed: _logout,
-                icon: const Icon(Icons.logout),
-                label: const Text("KELUAR APLIKASI", style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
+            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -130,23 +226,38 @@ class _DokterProfilePageState extends State<DokterProfilePage> {
   }
 
   Widget _buildRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.blue),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              ],
-            ),
-          )
-        ],
-      ),
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue[50],
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: const Color(0xFF0077B6), size: 20),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF03045E),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

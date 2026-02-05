@@ -11,7 +11,7 @@ class AdminBookingPage extends StatefulWidget {
 class _AdminBookingPageState extends State<AdminBookingPage> {
   // --- HELPER DATE ---
   String _getTanggalHariIni() {
-    return DateTime.now().toString().substring(0, 10); 
+    return DateTime.now().toString().substring(0, 10);
   }
 
   // --- 1. FUNGSI KIRIM NOTIFIKASI (WAJIB ADA) ---
@@ -35,63 +35,97 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
           .collection('bookings')
           .where('status', isEqualTo: 'Disetujui')
           .get();
-      
+
       int countHariIni = 0;
       for (var doc in snapshot.docs) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         String tglBooking = data['tanggal_booking'].toString();
         if (tglBooking.contains(today)) countHariIni++;
       }
-      int urutan = countHariIni + 1; 
-      return "A-${urutan.toString().padLeft(3, '0')}"; 
+      int urutan = countHariIni + 1;
+      return "A-${urutan.toString().padLeft(3, '0')}";
     } catch (e) {
-      return "A-001"; 
+      return "A-001";
     }
   }
 
   // --- FITUR FIX DATA ---
   void _fixDataAntrianHilang() async {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sedang memperbaiki data...")));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Sedang memperbaiki data...")));
     try {
-      var snapshot = await FirebaseFirestore.instance.collection('bookings').where('status', isEqualTo: 'Disetujui').get();
+      var snapshot = await FirebaseFirestore.instance
+          .collection('bookings')
+          .where('status', isEqualTo: 'Disetujui')
+          .get();
       int fixedCount = 0;
       for (var doc in snapshot.docs) {
         var data = doc.data();
         if (data['nomor_antrian'] == null || data['nomor_antrian'] == '') {
           String noBaru = await _generateNoAntrian();
-          await FirebaseFirestore.instance.collection('bookings').doc(doc.id).update({'nomor_antrian': noBaru});
+          await FirebaseFirestore.instance
+              .collection('bookings')
+              .doc(doc.id)
+              .update({'nomor_antrian': noBaru});
           fixedCount++;
         }
       }
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Selesai! $fixedCount data diperbaiki."), backgroundColor: Colors.green));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Selesai! $fixedCount data diperbaiki."),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
     }
   }
 
   // --- FUNGSI UPDATE STATUS (DENGAN NOTIFIKASI) ---
   void _updateStatus(String docId, String newStatus, String uidPasien) async {
-    if (newStatus == 'Selesai') return; 
+    if (newStatus == 'Selesai') return;
 
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Memproses..."), duration: Duration(milliseconds: 500)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Memproses..."),
+        duration: Duration(milliseconds: 500),
+      ),
+    );
     Map<String, dynamic> dataUpdate = {'status': newStatus};
-    String pesanNotif = "";
 
     // Jika Disetujui, Generate Nomor
     if (newStatus == 'Disetujui') {
       String noAntrian = await _generateNoAntrian();
       dataUpdate['nomor_antrian'] = noAntrian;
-      pesanNotif = "Booking Dikonfirmasi! No Antrian: $noAntrian";
-      
+
       // Kirim Notif Terima
-      _kirimNotif(uidPasien, "Booking Diterima", "Silakan datang sesuai jadwal. No: $noAntrian", "booking");
-    } 
-    else if (newStatus == 'Ditolak') {
+      _kirimNotif(
+        uidPasien,
+        "Booking Diterima",
+        "Silakan datang sesuai jadwal. No: $noAntrian",
+        "booking",
+      );
+    } else if (newStatus == 'Ditolak') {
       // Kirim Notif Tolak
-      _kirimNotif(uidPasien, "Booking Ditolak", "Mohon maaf, jadwal penuh atau dokter berhalangan.", "info");
+      _kirimNotif(
+        uidPasien,
+        "Booking Ditolak",
+        "Mohon maaf, jadwal penuh atau dokter berhalangan.",
+        "info",
+      );
     }
 
-    await FirebaseFirestore.instance.collection('bookings').doc(docId).update(dataUpdate);
+    await FirebaseFirestore.instance
+        .collection('bookings')
+        .doc(docId)
+        .update(dataUpdate);
   }
 
   // --- FUNGSI BOOKING MANUAL (Offline) ---
@@ -99,59 +133,93 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
     String? selectedPasienId;
     Map<String, dynamic>? selectedPasienData;
     String? selectedPoli;
-    String? selectedDokterId; 
+    String? selectedDokterId;
     Map<String, dynamic>? selectedDokterData;
 
     showDialog(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setStateDialog) {
+          builder: (sbContext, setStateDialog) {
             return AlertDialog(
               title: const Text("Booking Manual"),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                      StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance.collection('users').where('role', isEqualTo: 'pasien').snapshots(),
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('users')
+                          .where('role', isEqualTo: 'pasien')
+                          .snapshots(),
                       builder: (context, snapshot) {
-                        if (!snapshot.hasData) return const LinearProgressIndicator();
+                        if (!snapshot.hasData) {
+                          return const LinearProgressIndicator();
+                        }
                         return DropdownButtonFormField<String>(
-                          isExpanded: true, hint: const Text("Pilih Pasien"),
+                          isExpanded: true,
+                          hint: const Text("Pilih Pasien"),
                           items: snapshot.data!.docs.map((doc) {
-                             var data = doc.data() as Map<String, dynamic>;
-                             return DropdownMenuItem(value: doc.id, onTap: () => selectedPasienData = data, child: Text(data['nama'] ?? '-'));
+                            var data = doc.data() as Map<String, dynamic>;
+                            return DropdownMenuItem(
+                              value: doc.id,
+                              onTap: () => selectedPasienData = data,
+                              child: Text(data['nama'] ?? '-'),
+                            );
                           }).toList(),
-                          onChanged: (val) => setStateDialog(() => selectedPasienId = val),
+                          onChanged: (val) =>
+                              setStateDialog(() => selectedPasienId = val),
                         );
                       },
                     ),
                     const SizedBox(height: 10),
                     StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance.collection('polis').orderBy('nama_poli').snapshots(),
+                      stream: FirebaseFirestore.instance
+                          .collection('polis')
+                          .orderBy('nama_poli')
+                          .snapshots(),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) return const SizedBox();
                         return DropdownButtonFormField<String>(
-                          isExpanded: true, hint: const Text("Pilih Poli"),
-                          items: snapshot.data!.docs.map((doc) => DropdownMenuItem(value: doc['nama_poli'] as String, child: Text(doc['nama_poli']))).toList(),
-                          onChanged: (val) => setStateDialog(() { selectedPoli = val; selectedDokterId = null; }),
+                          isExpanded: true,
+                          hint: const Text("Pilih Poli"),
+                          items: snapshot.data!.docs
+                              .map(
+                                (doc) => DropdownMenuItem(
+                                  value: doc['nama_poli'] as String,
+                                  child: Text(doc['nama_poli']),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (val) => setStateDialog(() {
+                            selectedPoli = val;
+                            selectedDokterId = null;
+                          }),
                         );
                       },
                     ),
                     const SizedBox(height: 10),
                     if (selectedPoli != null)
                       StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance.collection('doctors').where('Poli', isEqualTo: selectedPoli).snapshots(),
+                        stream: FirebaseFirestore.instance
+                            .collection('doctors')
+                            .where('Poli', isEqualTo: selectedPoli)
+                            .snapshots(),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) return const SizedBox();
                           return DropdownButtonFormField<String>(
-                            isExpanded: true, hint: const Text("Pilih Dokter"),
+                            isExpanded: true,
+                            hint: const Text("Pilih Dokter"),
                             items: snapshot.data!.docs.map((doc) {
-                               var data = doc.data() as Map<String, dynamic>;
-                               return DropdownMenuItem(value: doc.id, onTap: () => selectedDokterData = data, child: Text(data['Nama'] ?? '-'));
+                              var data = doc.data() as Map<String, dynamic>;
+                              return DropdownMenuItem(
+                                value: doc.id,
+                                onTap: () => selectedDokterData = data,
+                                child: Text(data['Nama'] ?? '-'),
+                              );
                             }).toList(),
-                            onChanged: (val) => setStateDialog(() => selectedDokterId = val),
+                            onChanged: (val) =>
+                                setStateDialog(() => selectedDokterId = val),
                           );
                         },
                       ),
@@ -159,35 +227,51 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
                 ),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text("Batal")),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text("Batal"),
+                ),
                 ElevatedButton(
                   onPressed: () async {
-                    if (selectedPasienId == null || selectedDokterId == null) return;
+                    if (selectedPasienId == null || selectedDokterId == null) {
+                      return;
+                    }
                     Navigator.pop(dialogContext);
-                    
+
                     String noAntrian = await _generateNoAntrian();
                     String noBpjs = selectedPasienData?['nomor_bpjs'] ?? '-';
                     String jenis = (noBpjs.length > 3) ? 'BPJS' : 'Regular';
 
-                    await FirebaseFirestore.instance.collection('bookings').add({
-                      'id_pasien': selectedPasienId,
-                      'nama_pasien': selectedPasienData?['nama'],
-                      'nomor_bpjs': noBpjs,
-                      'dokter_uid': selectedDokterId,
-                      'nama_dokter': selectedDokterData?['Nama'],
-                      'poli': selectedDokterData?['Poli'],
-                      'jenis_pasien': jenis,
-                      'status': 'Disetujui',
-                      'nomor_antrian': noAntrian,
-                      'tanggal_booking': DateTime.now().toString(),
-                      'created_at': FieldValue.serverTimestamp(),
-                      'biaya': '0',
-                    });
-                    
-                    // KIRIM NOTIFIKASI JUGA UTK BOOKING MANUAL
-                    _kirimNotif(selectedPasienId!, "Booking Dibuat Admin", "Admin telah mendaftarkan antrian A-$noAntrian untuk Anda.", "booking");
+                    await FirebaseFirestore.instance
+                        .collection('bookings')
+                        .add({
+                          'id_pasien': selectedPasienId,
+                          'nama_pasien': selectedPasienData?['nama'],
+                          'nomor_bpjs': noBpjs,
+                          'dokter_uid': selectedDokterId,
+                          'nama_dokter': selectedDokterData?['Nama'],
+                          'poli': selectedDokterData?['Poli'],
+                          'jenis_pasien': jenis,
+                          'status': 'Disetujui',
+                          'nomor_antrian': noAntrian,
+                          'tanggal_booking': DateTime.now().toString(),
+                          'created_at': FieldValue.serverTimestamp(),
+                          'biaya': '0',
+                        });
 
-                    if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Sukses! Antrian: $noAntrian")));
+                    // KIRIM NOTIFIKASI JUGA UTK BOOKING MANUAL
+                    _kirimNotif(
+                      selectedPasienId!,
+                      "Booking Dibuat Admin",
+                      "Admin telah mendaftarkan antrian A-$noAntrian untuk Anda.",
+                      "booking",
+                    );
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Sukses! Antrian: $noAntrian")),
+                      );
+                    }
                   },
                   child: const Text("Simpan"),
                 ),
@@ -200,123 +284,387 @@ class _AdminBookingPageState extends State<AdminBookingPage> {
   }
 
   // --- DIALOG PEMBAYARAN (DENGAN NOTIFIKASI) ---
-  void _dialogProsesPembayaran(String docId, String namaPasien, String totalBiaya, String uidPasien) {
+  void _dialogProsesPembayaran(
+    String docId,
+    String namaPasien,
+    String totalBiaya,
+    String uidPasien,
+  ) {
     String metode = 'Tunai';
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
         title: const Text("Kasir"),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text("Total: Rp $totalBiaya", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const Divider(),
-          const Text("Metode Pembayaran:"),
-          DropdownButton<String>(
-            value: metode,
-            items: ['Tunai', 'Transfer', 'QRIS'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-            onChanged: (val) {}, 
-          )
-        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Total: Rp $totalBiaya",
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const Divider(),
+            const Text("Metode Pembayaran:"),
+            DropdownButton<String>(
+              value: metode,
+              items: [
+                'Tunai',
+                'Transfer',
+                'QRIS',
+              ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+              onChanged: (val) {},
+            ),
+          ],
+        ),
         actions: [
           ElevatedButton(
             onPressed: () {
-               // Update Lunas
-               FirebaseFirestore.instance.collection('bookings').doc(docId).update({'status': 'Selesai', 'metode_bayar': metode, 'tgl_bayar': DateTime.now().toString()});
-               
-               // KIRIM NOTIFIKASI LUNAS
-               _kirimNotif(uidPasien, "Pembayaran Lunas", "Terima kasih. Pembayaran via $metode telah diterima.", "payment");
+              // Update Lunas
+              FirebaseFirestore.instance
+                  .collection('bookings')
+                  .doc(docId)
+                  .update({
+                    'status': 'Selesai',
+                    'metode_bayar': metode,
+                    'tgl_bayar': DateTime.now().toString(),
+                  });
 
-               Navigator.pop(c);
+              // KIRIM NOTIFIKASI LUNAS
+              _kirimNotif(
+                uidPasien,
+                "Pembayaran Lunas",
+                "Terima kasih. Pembayaran via $metode telah diterima.",
+                "payment",
+              );
+
+              Navigator.pop(c);
             },
             child: const Text("LUNAS"),
-          )
+          ),
         ],
-      )
+      ),
     );
   }
 
   // --- CETAK STRUK ---
   void _cetakStruk(Map<String, dynamic> data) {
-    showDialog(context: context, builder: (c) => AlertDialog(
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.print, size: 50),
-        const Text("STRUK RESMI", style: TextStyle(fontWeight: FontWeight.bold)),
-        const Divider(),
-        Text("No. Antrian: ${data['nomor_antrian'] ?? '-'}"), 
-        Text("Pasien: ${data['nama_pasien']}"),
-        const Divider(),
-        const Text("Resep Obat:"),
-        Text(data['resep_obat'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
-      ]),
-    ));
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.print, size: 50),
+            const Text(
+              "STRUK RESMI",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const Divider(),
+            Text("No. Antrian: ${data['nomor_antrian'] ?? '-'}"),
+            Text("Pasien: ${data['nama_pasien']}"),
+            const Divider(),
+            const Text("Resep Obat:"),
+            Text(
+              data['resep_obat'] ?? '-',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text("Kasir & Antrian"), 
-        backgroundColor: Colors.blue[900], 
-        foregroundColor: Colors.white,
+        title: const Text(
+          "Manajemen Antrian",
+          style: TextStyle(
+            color: Color(0xFF023E8A),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF023E8A)),
         actions: [
-          IconButton(icon: const Icon(Icons.build), tooltip: "Perbaiki Nomor Antrian Hilang", onPressed: _fixDataAntrianHilang)
+          IconButton(
+            icon: const Icon(Icons.build_circle_outlined),
+            tooltip: "Fix Data Dokter/Antrian",
+            onPressed: () {
+              _fixDataAntrianHilang();
+            },
+          ),
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('bookings').orderBy('created_at', descending: true).snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('bookings')
+            .orderBy('created_at', descending: true)
+            .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
           var docs = snapshot.data!.docs;
+          if (docs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.assignment_turned_in_outlined,
+                    size: 64,
+                    color: Colors.grey[300],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    "Belum ada data booking.",
+                    style: TextStyle(color: Colors.grey[500]),
+                  ),
+                ],
+              ),
+            );
+          }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(20),
             itemCount: docs.length,
             itemBuilder: (context, index) {
               var data = docs[index].data() as Map<String, dynamic>;
               String status = data['status'] ?? 'Menunggu';
-              String uidPasien = data['id_pasien'] ?? ''; // PENTING: Ambil UID Pasien
+              String uidPasien = data['id_pasien'] ?? '';
+              bool isUrgent = status == 'Menunggu Konfirmasi';
 
-              return Card(
-                child: ListTile(
-                  title: Text(data['nama_pasien'] ?? 'Pasien'),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                  border: isUrgent
+                      ? Border.all(
+                          color: Colors.orange.withValues(alpha: 0.5),
+                          width: 1,
+                        )
+                      : null,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
                     children: [
-                      Text("${data['poli']} - Dr. ${data['nama_dokter']}"),
-                      Text("Status: $status", style: TextStyle(color: status == 'Disetujui' ? Colors.blue : Colors.grey)),
-                      if (data['nomor_antrian'] != null)
-                          Text("NO ANTRIAN: ${data['nomor_antrian']}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFF0077B6,
+                              ).withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.person_rounded,
+                              color: Color(0xFF0077B6),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      data['nama_pasien'] ?? 'Pasien',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    _buildStatusChip(status),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "${data['poli']} - Dr. ${data['nama_dokter']}",
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                if (data['nomor_antrian'] != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green[50],
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: Colors.green.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      "NO ANTRIAN: ${data['nomor_antrian']}",
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // ACTION BUTTONS
+                      if (_hasAction(status)) ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Divider(height: 1),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: _buildActionButtons(
+                            status,
+                            docs[index].id,
+                            data,
+                            uidPasien,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
-                  isThreeLine: true,
-                  // PENTING: Pass uidPasien ke _buildAction
-                  trailing: _buildAction(status, docs[index].id, data, uidPasien),
                 ),
               );
             },
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(onPressed: _tambahBookingOffline, child: const Icon(Icons.add)),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _tambahBookingOffline,
+        backgroundColor: const Color(0xFF0077B6),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text("Booking Manual"),
+      ),
     );
   }
 
-  // --- BUILD ACTION (DENGAN UID PASIEN) ---
-  Widget? _buildAction(String status, String docId, Map<String, dynamic> data, String uidPasien) {
+  // --- HELPER UI ---
+  Widget _buildStatusChip(String status) {
+    Color color = Colors.grey;
+    Color bgColor = Colors.grey[100]!;
+
+    if (status == 'Disetujui') {
+      color = Colors.green;
+      bgColor = Colors.green[50]!;
+    } else if (status == 'Menunggu Konfirmasi') {
+      color = Colors.orange;
+      bgColor = Colors.orange[50]!;
+    } else if (status == 'Ditolak') {
+      color = Colors.red;
+      bgColor = Colors.red[50]!;
+    } else if (status == 'Selesai') {
+      color = Colors.blue;
+      bgColor = Colors.blue[50]!;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  bool _hasAction(String status) {
+    return status == 'Menunggu Konfirmasi' ||
+        status == 'Menunggu Pembayaran' ||
+        status == 'Selesai';
+  }
+
+  List<Widget> _buildActionButtons(
+    String status,
+    String docId,
+    Map<String, dynamic> data,
+    String uidPasien,
+  ) {
     if (status == 'Menunggu Konfirmasi') {
-      return PopupMenuButton<String>(
-        onSelected: (val) => _updateStatus(docId, val, uidPasien), // Pass uidPasien
-        itemBuilder: (context) => [
-          const PopupMenuItem(value: 'Disetujui', child: Text("Terima Booking")),
-          const PopupMenuItem(value: 'Ditolak', child: Text("Tolak")),
-        ]
-      );
+      return [
+        OutlinedButton.icon(
+          onPressed: () => _updateStatus(docId, 'Ditolak', uidPasien),
+          icon: const Icon(Icons.close_rounded, size: 18, color: Colors.red),
+          label: const Text("Tolak", style: TextStyle(color: Colors.red)),
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: Colors.red),
+          ),
+        ),
+        const SizedBox(width: 8),
+        ElevatedButton.icon(
+          onPressed: () => _updateStatus(docId, 'Disetujui', uidPasien),
+          icon: const Icon(Icons.check_rounded, size: 18),
+          label: const Text("Terima"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+          ),
+        ),
+      ];
     }
     if (status == 'Menunggu Pembayaran') {
-      return IconButton(icon: const Icon(Icons.payment, color: Colors.green), onPressed: () => _dialogProsesPembayaran(docId, data['nama_pasien'], data['biaya'] ?? '0', uidPasien)); // Pass uidPasien
+      return [
+        ElevatedButton.icon(
+          onPressed: () => _dialogProsesPembayaran(
+            docId,
+            data['nama_pasien'],
+            data['biaya'] ?? '0',
+            uidPasien,
+          ),
+          icon: const Icon(Icons.payment_rounded, size: 18),
+          label: const Text("Proses Bayar"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0077B6),
+            foregroundColor: Colors.white,
+          ),
+        ),
+      ];
     }
     if (status == 'Selesai') {
-      return IconButton(icon: const Icon(Icons.print), onPressed: () => _cetakStruk(data));
+      return [
+        TextButton.icon(
+          onPressed: () => _cetakStruk(data),
+          icon: const Icon(Icons.print_rounded, size: 18, color: Colors.grey),
+          label: const Text(
+            "Cetak Struk",
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      ];
     }
-    return null;
+    return [];
   }
 }

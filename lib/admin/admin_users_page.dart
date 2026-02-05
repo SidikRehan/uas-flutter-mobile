@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart'; 
-import 'admin_poli_page.dart'; 
+import 'package:firebase_core/firebase_core.dart';
+import 'admin_poli_page.dart';
 
 class AdminUsersPage extends StatefulWidget {
   const AdminUsersPage({super.key});
@@ -11,10 +11,11 @@ class AdminUsersPage extends StatefulWidget {
   State<AdminUsersPage> createState() => _AdminUsersPageState();
 }
 
-class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProviderStateMixin {
+class _AdminUsersPageState extends State<AdminUsersPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int _tabIndex = 0;
-  
+
   bool isSuperAdmin = false;
   final User? currentUser = FirebaseAuth.instance.currentUser;
 
@@ -23,7 +24,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProvid
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) setState(() => _tabIndex = _tabController.index);
+      if (!_tabController.indexIsChanging)
+        setState(() => _tabIndex = _tabController.index);
     });
     _cekLevelAdmin();
   }
@@ -33,16 +35,25 @@ class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProvid
     if (rawData is! List) return "-";
     List<String> hari = List<String>.from(rawData);
     if (hari.isEmpty) return "-";
-    const urutan = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+    const urutan = [
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu',
+      'Minggu',
+    ];
     hari.sort((a, b) => urutan.indexOf(a).compareTo(urutan.indexOf(b)));
-    
+
     // Cek apakah hari berurutan (Contoh: Senin, Selasa, Rabu -> Senin - Rabu)
     if (hari.length > 2) {
-        bool urut = true;
-        for(int i=0; i<hari.length-1; i++) {
-            if(urutan.indexOf(hari[i+1]) != urutan.indexOf(hari[i])+1) urut = false;
-        }
-        if(urut) return "${hari.first} - ${hari.last}";
+      bool urut = true;
+      for (int i = 0; i < hari.length - 1; i++) {
+        if (urutan.indexOf(hari[i + 1]) != urutan.indexOf(hari[i]) + 1)
+          urut = false;
+      }
+      if (urut) return "${hari.first} - ${hari.last}";
     }
     return hari.join(', ');
   }
@@ -50,19 +61,26 @@ class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProvid
   // --- LOGIKA "ADMIN SAKTI" ---
   void _cekLevelAdmin() async {
     if (currentUser != null) {
-      var doc = await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).get();
+      var doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser!.uid)
+          .get();
       bool statusSuper = false;
       String emailSakti = "admin@rs.com"; // Ganti Email Anda
 
       if (currentUser!.email == emailSakti) {
-         statusSuper = true;
-         if (!doc.exists || doc.data()?['level'] != 'super') {
-            await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).set({
-              'level': 'super', 'role': 'admin', 'email': emailSakti,
-            }, SetOptions(merge: true));
-         }
-      } 
-      else if (doc.exists && doc.data()?['level'] == 'super') {
+        statusSuper = true;
+        if (!doc.exists || doc.data()?['level'] != 'super') {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUser!.uid)
+              .set({
+                'level': 'super',
+                'role': 'admin',
+                'email': emailSakti,
+              }, SetOptions(merge: true));
+        }
+      } else if (doc.exists && doc.data()?['level'] == 'super') {
         statusSuper = true;
       }
       if (mounted) setState(() => isSuperAdmin = statusSuper);
@@ -72,19 +90,29 @@ class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProvid
   // --- RESET PASSWORD ---
   void _kirimResetPassword(String email, String nama) async {
     if (email == '-' || email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Email tidak valid/kosong.")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Email tidak valid/kosong.")),
+      );
       return;
     }
     try {
-      showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator()));
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => const Center(child: CircularProgressIndicator()),
+      );
       await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Link reset terkirim ke $email")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Link reset terkirim ke $email")),
+        );
       }
     } catch (e) {
       if (mounted) Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal: $e")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Gagal: $e")));
     }
   }
 
@@ -104,38 +132,88 @@ class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProvid
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: namaCtrl, decoration: const InputDecoration(labelText: "Nama Pasien")),
+              TextField(
+                controller: namaCtrl,
+                decoration: const InputDecoration(labelText: "Nama Pasien"),
+              ),
               const SizedBox(height: 10),
-              TextField(controller: nikCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "NIK")),
-              TextField(controller: bpjsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "No. BPJS (Opsional)")),
-              const SizedBox(height: 15), const Divider(),
-              TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: "Email")),
-              TextField(controller: passCtrl, obscureText: true, decoration: const InputDecoration(labelText: "Password")),
+              TextField(
+                controller: nikCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: "NIK"),
+              ),
+              TextField(
+                controller: bpjsCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "No. BPJS (Opsional)",
+                ),
+              ),
+              const SizedBox(height: 15),
+              const Divider(),
+              TextField(
+                controller: emailCtrl,
+                decoration: const InputDecoration(labelText: "Email"),
+              ),
+              TextField(
+                controller: passCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: "Password"),
+              ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
           ElevatedButton(
             onPressed: () async {
               if (emailCtrl.text.isEmpty || passCtrl.text.isEmpty) return;
               try {
-                FirebaseApp secondaryApp = await Firebase.initializeApp(name: 'SecondaryApp', options: Firebase.app().options);
-                UserCredential uc = await FirebaseAuth.instanceFor(app: secondaryApp).createUserWithEmailAndPassword(email: emailCtrl.text, password: passCtrl.text);
-                
+                FirebaseApp secondaryApp = await Firebase.initializeApp(
+                  name: 'SecondaryApp',
+                  options: Firebase.app().options,
+                );
+                UserCredential uc =
+                    await FirebaseAuth.instanceFor(
+                      app: secondaryApp,
+                    ).createUserWithEmailAndPassword(
+                      email: emailCtrl.text,
+                      password: passCtrl.text,
+                    );
+
                 String uid = uc.user!.uid;
-                await FirebaseFirestore.instance.collection('users').doc(uid).set({
-                  'uid': uid, 'nama': namaCtrl.text, 'email': emailCtrl.text, 'role': 'pasien', 
-                  'nomor_bpjs': bpjsCtrl.text, 'created_at': FieldValue.serverTimestamp(), 'is_active': true, 
-                });
-                await FirebaseFirestore.instance.collection('pasiens').doc(uid).set({
-                  'uid': uid, 'nama': namaCtrl.text, 'email': emailCtrl.text, 'nik': nikCtrl.text, 'nomor_bpjs': bpjsCtrl.text,
-                });
-                
-                await secondaryApp.delete(); 
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(uid)
+                    .set({
+                      'uid': uid,
+                      'nama': namaCtrl.text,
+                      'email': emailCtrl.text,
+                      'role': 'pasien',
+                      'nomor_bpjs': bpjsCtrl.text,
+                      'created_at': FieldValue.serverTimestamp(),
+                      'is_active': true,
+                    });
+                await FirebaseFirestore.instance
+                    .collection('pasiens')
+                    .doc(uid)
+                    .set({
+                      'uid': uid,
+                      'nama': namaCtrl.text,
+                      'email': emailCtrl.text,
+                      'nik': nikCtrl.text,
+                      'nomor_bpjs': bpjsCtrl.text,
+                    });
+
+                await secondaryApp.delete();
                 if (mounted) Navigator.pop(context);
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text("Error: $e")));
               }
             },
             child: const Text("Simpan"),
@@ -150,24 +228,39 @@ class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProvid
     final namaCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final passCtrl = TextEditingController();
-    
+
     TimeOfDay jamBuka = const TimeOfDay(hour: 8, minute: 0);
     TimeOfDay jamTutup = const TimeOfDay(hour: 16, minute: 0);
     List<String> hariTerpilih = [];
-    String? selectedPoli; 
-    final List<String> semuaHari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+    String? selectedPoli;
+    final List<String> semuaHari = [
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu',
+      'Minggu',
+    ];
 
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
-            
             Future<void> pickTime(bool isBuka) async {
-              final picked = await showTimePicker(context: context, initialTime: isBuka ? jamBuka : jamTutup);
-              if (picked != null) setStateDialog(() => isBuka ? jamBuka = picked : jamTutup = picked);
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: isBuka ? jamBuka : jamTutup,
+              );
+              if (picked != null)
+                setStateDialog(
+                  () => isBuka ? jamBuka = picked : jamTutup = picked,
+                );
             }
-            String formatTime(TimeOfDay t) => '${t.hour.toString().padLeft(2,'0')}:${t.minute.toString().padLeft(2,'0')}';
+
+            String formatTime(TimeOfDay t) =>
+                '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
             return AlertDialog(
               title: const Text("Tambah Dokter Baru"),
@@ -176,41 +269,84 @@ class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProvid
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextField(controller: namaCtrl, decoration: const InputDecoration(labelText: "Nama Dokter")),
-                    TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: "Email")),
-                    TextField(controller: passCtrl, obscureText: true, decoration: const InputDecoration(labelText: "Password")),
+                    TextField(
+                      controller: namaCtrl,
+                      decoration: const InputDecoration(
+                        labelText: "Nama Dokter",
+                      ),
+                    ),
+                    TextField(
+                      controller: emailCtrl,
+                      decoration: const InputDecoration(labelText: "Email"),
+                    ),
+                    TextField(
+                      controller: passCtrl,
+                      obscureText: true,
+                      decoration: const InputDecoration(labelText: "Password"),
+                    ),
                     const SizedBox(height: 15),
-                    
+
                     StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance.collection('polis').orderBy('nama_poli').snapshots(),
+                      stream: FirebaseFirestore.instance
+                          .collection('polis')
+                          .orderBy('nama_poli')
+                          .snapshots(),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) return const SizedBox();
                         return DropdownButtonFormField<String>(
-                          value: selectedPoli,
-                          decoration: const InputDecoration(labelText: "Pilih Poli", border: OutlineInputBorder()),
+                          initialValue: selectedPoli,
+                          decoration: const InputDecoration(
+                            labelText: "Pilih Poli",
+                            border: OutlineInputBorder(),
+                          ),
                           items: snapshot.data!.docs.map((doc) {
-                             var data = doc.data() as Map<String, dynamic>;
-                             return DropdownMenuItem(value: data['nama_poli'].toString(), child: Text(data['nama_poli'].toString()));
+                            var data = doc.data() as Map<String, dynamic>;
+                            return DropdownMenuItem(
+                              value: data['nama_poli'].toString(),
+                              child: Text(data['nama_poli'].toString()),
+                            );
                           }).toList(),
-                          onChanged: (val) => setStateDialog(() => selectedPoli = val),
+                          onChanged: (val) =>
+                              setStateDialog(() => selectedPoli = val),
                         );
                       },
                     ),
                     const SizedBox(height: 15),
-                    const Text("Jadwal Praktik:", style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text(
+                      "Jadwal Praktik:",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     Row(
                       children: [
-                          Expanded(child: OutlinedButton(onPressed: () => pickTime(true), child: Text(formatTime(jamBuka)))),
-                          const Padding(padding: EdgeInsets.symmetric(horizontal: 5), child: Text("-")),
-                          Expanded(child: OutlinedButton(onPressed: () => pickTime(false), child: Text(formatTime(jamTutup)))),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => pickTime(true),
+                            child: Text(formatTime(jamBuka)),
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 5),
+                          child: Text("-"),
+                        ),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => pickTime(false),
+                            child: Text(formatTime(jamTutup)),
+                          ),
+                        ),
                       ],
                     ),
                     Wrap(
                       spacing: 5,
                       children: semuaHari.map((hari) {
                         return FilterChip(
-                          label: Text(hari), selected: hariTerpilih.contains(hari),
-                          onSelected: (val) => setStateDialog(() => val ? hariTerpilih.add(hari) : hariTerpilih.remove(hari)),
+                          label: Text(hari),
+                          selected: hariTerpilih.contains(hari),
+                          onSelected: (val) => setStateDialog(
+                            () => val
+                                ? hariTerpilih.add(hari)
+                                : hariTerpilih.remove(hari),
+                          ),
                         );
                       }).toList(),
                     ),
@@ -218,33 +354,68 @@ class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProvid
                 ),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Batal"),
+                ),
                 ElevatedButton(
                   onPressed: () async {
-                    if (emailCtrl.text.isEmpty || passCtrl.text.isEmpty || selectedPoli == null || hariTerpilih.isEmpty) {
-                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Lengkapi data!")));
-                       return;
+                    if (emailCtrl.text.isEmpty ||
+                        passCtrl.text.isEmpty ||
+                        selectedPoli == null ||
+                        hariTerpilih.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Lengkapi data!")),
+                      );
+                      return;
                     }
                     try {
-                      FirebaseApp secondaryApp = await Firebase.initializeApp(name: 'SecondaryApp', options: Firebase.app().options);
-                      UserCredential uc = await FirebaseAuth.instanceFor(app: secondaryApp).createUserWithEmailAndPassword(email: emailCtrl.text, password: passCtrl.text);
+                      FirebaseApp secondaryApp = await Firebase.initializeApp(
+                        name: 'SecondaryApp',
+                        options: Firebase.app().options,
+                      );
+                      UserCredential uc =
+                          await FirebaseAuth.instanceFor(
+                            app: secondaryApp,
+                          ).createUserWithEmailAndPassword(
+                            email: emailCtrl.text,
+                            password: passCtrl.text,
+                          );
                       String uid = uc.user!.uid;
 
-                      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-                        'uid': uid, 'nama': namaCtrl.text, 'email': emailCtrl.text, 'role': 'dokter', 'created_at': FieldValue.serverTimestamp(), 'is_active': true, 
-                      });
-                      await FirebaseFirestore.instance.collection('doctors').doc(uid).set({
-                        'uid': uid, 'nama': namaCtrl.text, 'Nama': namaCtrl.text,
-                        'Poli': selectedPoli, 
-                        'jam_buka': formatTime(jamBuka), 'jam_tutup': formatTime(jamTutup),
-                        'hari_kerja': hariTerpilih, 'email': emailCtrl.text,
-                        'foto_url': '', 'is_active': true, 
-                      });
-                      
+                      await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(uid)
+                          .set({
+                            'uid': uid,
+                            'nama': namaCtrl.text,
+                            'email': emailCtrl.text,
+                            'role': 'dokter',
+                            'created_at': FieldValue.serverTimestamp(),
+                            'is_active': true,
+                          });
+                      await FirebaseFirestore.instance
+                          .collection('doctors')
+                          .doc(uid)
+                          .set({
+                            'uid': uid,
+                            'nama': namaCtrl.text,
+                            'Nama': namaCtrl.text,
+                            'Poli': selectedPoli,
+                            'jam_buka': formatTime(jamBuka),
+                            'jam_tutup': formatTime(jamTutup),
+                            'hari_kerja': hariTerpilih,
+                            'email': emailCtrl.text,
+                            'foto_url': '',
+                            'is_active': true,
+                          });
+
                       await secondaryApp.delete();
                       if (mounted) Navigator.pop(context);
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text("Error: $e")));
                     }
                   },
                   child: const Text("Simpan"),
@@ -266,16 +437,32 @@ class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProvid
     TimeOfDay jamBuka = const TimeOfDay(hour: 8, minute: 0);
     TimeOfDay jamTutup = const TimeOfDay(hour: 16, minute: 0);
     List<String> hariTerpilih = [];
-    final List<String> semuaHari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+    final List<String> semuaHari = [
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu',
+      'Minggu',
+    ];
 
     if (role == 'dokter') {
       try {
         if (data['jam_buka'] != null) {
-          var p1 = data['jam_buka'].toString().split(':'); jamBuka = TimeOfDay(hour: int.parse(p1[0]), minute: int.parse(p1[1]));
-          var p2 = data['jam_tutup'].toString().split(':'); jamTutup = TimeOfDay(hour: int.parse(p2[0]), minute: int.parse(p2[1]));
+          var p1 = data['jam_buka'].toString().split(':');
+          jamBuka = TimeOfDay(hour: int.parse(p1[0]), minute: int.parse(p1[1]));
+          var p2 = data['jam_tutup'].toString().split(':');
+          jamTutup = TimeOfDay(
+            hour: int.parse(p2[0]),
+            minute: int.parse(p2[1]),
+          );
         }
-        if (data['hari_kerja'] is List) hariTerpilih = List<String>.from(data['hari_kerja']);
-      } catch (e) { print("Error parsing jadwal: $e"); }
+        if (data['hari_kerja'] is List)
+          hariTerpilih = List<String>.from(data['hari_kerja']);
+      } catch (e) {
+        print("Error parsing jadwal: $e");
+      }
     }
 
     showDialog(
@@ -284,10 +471,18 @@ class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProvid
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             Future<void> pickTime(bool isBuka) async {
-              final picked = await showTimePicker(context: context, initialTime: isBuka ? jamBuka : jamTutup);
-              if (picked != null) setStateDialog(() => isBuka ? jamBuka = picked : jamTutup = picked);
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: isBuka ? jamBuka : jamTutup,
+              );
+              if (picked != null)
+                setStateDialog(
+                  () => isBuka ? jamBuka = picked : jamTutup = picked,
+                );
             }
-            String formatTime(TimeOfDay t) => '${t.hour.toString().padLeft(2,'0')}:${t.minute.toString().padLeft(2,'0')}';
+
+            String formatTime(TimeOfDay t) =>
+                '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
             return AlertDialog(
               title: Text("Edit $role"),
@@ -296,53 +491,116 @@ class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProvid
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SwitchListTile(
-                      title: Text(isActive ? "Status: AKTIF" : "Status: NON-AKTIF", style: TextStyle(color: isActive ? Colors.green : Colors.red)),
-                      value: isActive, onChanged: (val) => setStateDialog(() => isActive = val),
+                      title: Text(
+                        isActive ? "Status: AKTIF" : "Status: NON-AKTIF",
+                        style: TextStyle(
+                          color: isActive ? Colors.green : Colors.red,
+                        ),
+                      ),
+                      value: isActive,
+                      onChanged: (val) => setStateDialog(() => isActive = val),
                     ),
-                    TextField(controller: namaCtrl, decoration: const InputDecoration(labelText: "Nama Lengkap")),
+                    TextField(
+                      controller: namaCtrl,
+                      decoration: const InputDecoration(
+                        labelText: "Nama Lengkap",
+                      ),
+                    ),
                     if (role == 'dokter') ...[
-                        const SizedBox(height: 10),
-                        StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance.collection('polis').orderBy('nama_poli').snapshots(),
+                      const SizedBox(height: 10),
+                      StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('polis')
+                            .orderBy('nama_poli')
+                            .snapshots(),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) return const SizedBox();
                           return DropdownButtonFormField<String>(
-                            value: selectedPoli,
-                            items: snapshot.data!.docs.map((doc) => DropdownMenuItem(value: doc['nama_poli'] as String, child: Text(doc['nama_poli']))).toList(),
-                            onChanged: (val) => setStateDialog(() => selectedPoli = val),
+                            initialValue: selectedPoli,
+                            items: snapshot.data!.docs
+                                .map(
+                                  (doc) => DropdownMenuItem(
+                                    value: doc['nama_poli'] as String,
+                                    child: Text(doc['nama_poli']),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) =>
+                                setStateDialog(() => selectedPoli = val),
                           );
                         },
                       ),
                       const SizedBox(height: 10),
                       if (isSuperAdmin) ...[
-                        Row(children: [
-                            Expanded(child: OutlinedButton(onPressed: () => pickTime(true), child: Text(formatTime(jamBuka)))),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => pickTime(true),
+                                child: Text(formatTime(jamBuka)),
+                              ),
+                            ),
                             const SizedBox(width: 5),
-                            Expanded(child: OutlinedButton(onPressed: () => pickTime(false), child: Text(formatTime(jamTutup)))),
-                        ]),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => pickTime(false),
+                                child: Text(formatTime(jamTutup)),
+                              ),
+                            ),
+                          ],
+                        ),
                         Wrap(
                           spacing: 5,
-                          children: semuaHari.map((hari) => FilterChip(label: Text(hari), selected: hariTerpilih.contains(hari), onSelected: (val) => setStateDialog(() => val ? hariTerpilih.add(hari) : hariTerpilih.remove(hari)))).toList(),
+                          children: semuaHari
+                              .map(
+                                (hari) => FilterChip(
+                                  label: Text(hari),
+                                  selected: hariTerpilih.contains(hari),
+                                  onSelected: (val) => setStateDialog(
+                                    () => val
+                                        ? hariTerpilih.add(hari)
+                                        : hariTerpilih.remove(hari),
+                                  ),
+                                ),
+                              )
+                              .toList(),
                         ),
-                      ] else 
-                        const Text("Jadwal terkunci (Hubungi Super Admin)", style: TextStyle(color: Colors.grey)),
+                      ] else
+                        const Text(
+                          "Jadwal terkunci (Hubungi Super Admin)",
+                          style: TextStyle(color: Colors.grey),
+                        ),
                     ],
                   ],
                 ),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Batal"),
+                ),
                 ElevatedButton(
                   onPressed: () async {
-                    await FirebaseFirestore.instance.collection('users').doc(docId).update({'nama': namaCtrl.text, 'is_active': isActive});
+                    await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(docId)
+                        .update({'nama': namaCtrl.text, 'is_active': isActive});
                     if (role == 'dokter') {
-                      Map<String, dynamic> updateData = {'nama': namaCtrl.text, 'Nama': namaCtrl.text, 'Poli': selectedPoli, 'is_active': isActive};
+                      Map<String, dynamic> updateData = {
+                        'nama': namaCtrl.text,
+                        'Nama': namaCtrl.text,
+                        'Poli': selectedPoli,
+                        'is_active': isActive,
+                      };
                       if (isSuperAdmin && hariTerpilih.isNotEmpty) {
-                            updateData['jam_buka'] = formatTime(jamBuka);
-                            updateData['jam_tutup'] = formatTime(jamTutup);
-                            updateData['hari_kerja'] = hariTerpilih;
+                        updateData['jam_buka'] = formatTime(jamBuka);
+                        updateData['jam_tutup'] = formatTime(jamTutup);
+                        updateData['hari_kerja'] = hariTerpilih;
                       }
-                      await FirebaseFirestore.instance.collection('doctors').doc(docId).update(updateData);
+                      await FirebaseFirestore.instance
+                          .collection('doctors')
+                          .doc(docId)
+                          .update(updateData);
                     }
                     if (mounted) Navigator.pop(context);
                   },
@@ -358,107 +616,343 @@ class _AdminUsersPageState extends State<AdminUsersPage> with SingleTickerProvid
 
   // --- DELETE USER ---
   void _deleteUser(String docId, String role, String nama) {
-     if (role == 'dokter' && !isSuperAdmin) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Hanya Super Admin!")));
-       return;
-     }
-     showDialog(context: context, builder: (c) => AlertDialog(title: const Text("Hapus?"), content: Text(nama), actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text("Batal")), TextButton(onPressed: () {
-             FirebaseFirestore.instance.collection('users').doc(docId).delete();
-             if(role=='dokter') FirebaseFirestore.instance.collection('doctors').doc(docId).delete();
-             if(role=='pasien') FirebaseFirestore.instance.collection('pasiens').doc(docId).delete();
-             Navigator.pop(c);
-     }, child: const Text("Hapus", style: TextStyle(color: Colors.red)))]));
+    if (role == 'dokter' && !isSuperAdmin) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Hanya Super Admin!")));
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text("Hapus?"),
+        content: Text(nama),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text("Batal"),
+          ),
+          TextButton(
+            onPressed: () {
+              FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(docId)
+                  .delete();
+              if (role == 'dokter')
+                FirebaseFirestore.instance
+                    .collection('doctors')
+                    .doc(docId)
+                    .delete();
+              if (role == 'pasien')
+                FirebaseFirestore.instance
+                    .collection('pasiens')
+                    .doc(docId)
+                    .delete();
+              Navigator.pop(c);
+            },
+            child: const Text("Hapus", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   // --- ADD ADMIN ---
-  void _addAdmin() { /* ... Kode sama seperti sebelumnya (hemat tempat) ... */ }
+  void _addAdmin() {
+    /* ... Kode sama seperti sebelumnya (hemat tempat) ... */
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Kelola Pengguna"),
-            Text(isSuperAdmin ? "SUPER ADMIN" : "Admin Staff", style: TextStyle(fontSize: 12, color: isSuperAdmin ? Colors.yellowAccent : Colors.white70)),
+            const Text(
+              "Kelola Pengguna",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              isSuperAdmin ? "SUPER ADMIN" : "Admin Staff",
+              style: TextStyle(
+                fontSize: 12,
+                color: isSuperAdmin ? Colors.orangeAccent : Colors.white70,
+              ),
+            ),
           ],
         ),
-        backgroundColor: Colors.blue[800], foregroundColor: Colors.white,
-        bottom: TabBar(controller: _tabController, indicatorColor: Colors.white, labelColor: Colors.white, unselectedLabelColor: Colors.white60, tabs: const [Tab(icon: Icon(Icons.people), text: "Pasien"), Tab(icon: Icon(Icons.medical_services), text: "Dokter"), Tab(icon: Icon(Icons.admin_panel_settings), text: "Admin")]),
-        actions: [IconButton(icon: const Icon(Icons.settings_suggest), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminPoliPage())))],
+        backgroundColor: const Color(0xFF0077B6), // Medical Blue
+        foregroundColor: Colors.white,
+        elevation: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          tabs: const [
+            Tab(icon: Icon(Icons.people_outline_rounded), text: "Pasien"),
+            Tab(icon: Icon(Icons.medical_services_outlined), text: "Dokter"),
+            Tab(icon: Icon(Icons.admin_panel_settings_outlined), text: "Admin"),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_suggest_outlined),
+            tooltip: "Kelola Poli",
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AdminPoliPage()),
+            ),
+          ),
+        ],
       ),
-      body: TabBarView(controller: _tabController, children: [_buildUserList('pasien'), _buildUserList('dokter'), _buildUserList('admin')]),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildUserList('pasien'),
+          _buildUserList('dokter'),
+          _buildUserList('admin'),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () { 
-          if (_tabIndex == 0) _addPasien(); 
-          else if (_tabIndex == 1) _addDokter(); 
-          else { if(isSuperAdmin) _addAdmin(); else ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Hanya Super Admin!"))); }
+        onPressed: () {
+          if (_tabIndex == 0) {
+            _addPasien();
+          } else if (_tabIndex == 1)
+            _addDokter();
+          else {
+            if (isSuperAdmin) {
+              _addAdmin();
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Hanya Super Admin!")),
+              );
+            }
+          }
         },
-        backgroundColor: Colors.blue[900], icon: const Icon(Icons.add), label: const Text("Tambah"),
+        backgroundColor: const Color(0xFF00B4D8), // Cyan Blue
+        icon: const Icon(Icons.add_rounded),
+        label: const Text("Tambah Baru"),
       ),
     );
   }
 
   Widget _buildUserList(String roleFilter) {
-    Query query = FirebaseFirestore.instance.collection('users').where('role', isEqualTo: roleFilter);
-    if (roleFilter == 'dokter') query = FirebaseFirestore.instance.collection('doctors'); 
+    Query query = FirebaseFirestore.instance
+        .collection('users')
+        .where('role', isEqualTo: roleFilter);
+    if (roleFilter == 'dokter')
+      query = FirebaseFirestore.instance.collection('doctors');
 
     return StreamBuilder<QuerySnapshot>(
       stream: query.snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
         var docs = snapshot.data!.docs;
-        
+
+        if (docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.person_off_outlined,
+                  size: 64,
+                  color: Colors.grey[300],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  "Belum ada data $roleFilter.",
+                  style: TextStyle(color: Colors.grey[500]),
+                ),
+              ],
+            ),
+          );
+        }
+
         return ListView.separated(
+          padding: const EdgeInsets.all(20),
           itemCount: docs.length,
-          separatorBuilder: (c, i) => const Divider(),
+          separatorBuilder: (c, i) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             var data = docs[index].data() as Map<String, dynamic>;
             String nama = data['nama'] ?? data['Nama'] ?? 'User';
             String email = data['email'] ?? '-';
             bool isActive = data['is_active'] ?? true;
-            
-            // --- INI PERBAIKANNYA: MENAMPILKAN JADWAL ---
+
+            // --- HEADER ICON ---
+            IconData iconLeading = Icons.person;
+            Color colorLeading = Colors.grey;
+            if (roleFilter == 'dokter') {
+              iconLeading = Icons.medical_services_rounded;
+              colorLeading = Colors.blue;
+            } else if (roleFilter == 'admin') {
+              iconLeading = Icons.admin_panel_settings_rounded;
+              colorLeading = Colors.orange;
+            } else {
+              iconLeading = Icons.person_rounded;
+              colorLeading = Colors.green;
+            }
+
+            // --- SUBTITLE WIDGET ---
             Widget subtitleWidget;
             if (roleFilter == 'dokter') {
-               // Baca jadwal
-               String hari = _formatHari(data['hari_kerja']);
-               String jam = "${data['jam_buka'] ?? '00:00'} - ${data['jam_tutup'] ?? '00:00'}";
-               
-               subtitleWidget = Column(
-                 crossAxisAlignment: CrossAxisAlignment.start,
-                 children: [
-                   Text(data['Poli'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
-                   const SizedBox(height: 2),
-                   // Tampilkan Jadwal (Senin-Jumat 08:00-16:00)
-                   Row(
-                     children: [
-                       const Icon(Icons.access_time, size: 12, color: Colors.blue),
-                       const SizedBox(width: 4),
-                       Text("$hari ($jam)", style: const TextStyle(fontSize: 12, color: Colors.black87)),
-                     ],
-                   ),
-                   const SizedBox(height: 2),
-                   Text("Email: $email", style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                 ],
-               );
-            } else {
-               subtitleWidget = Text(isActive ? email : "$email (NON-AKTIF)");
-            }
-            // ---------------------------------------------
+              // Baca jadwal
+              String hari = _formatHari(data['hari_kerja']);
+              String jam =
+                  "${data['jam_buka'] ?? '00:00'} - ${data['jam_tutup'] ?? '00:00'}";
 
-            return ListTile(
-              leading: CircleAvatar(backgroundColor: isActive ? Colors.blue : Colors.grey, child: Icon(roleFilter == 'dokter' ? Icons.medical_services : Icons.person, color: Colors.white)),
-              title: Text(nama),
-              subtitle: subtitleWidget, // Gunakan widget subtitle baru
-              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                  IconButton(icon: const Icon(Icons.lock_reset, color: Colors.orange), onPressed: () => _kirimResetPassword(email, nama)),
-                  IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _editUser(data, docs[index].id, roleFilter)),
-                  if (roleFilter != 'admin' || isSuperAdmin) IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteUser(docs[index].id, roleFilter, nama)),
-              ]),
+              subtitleWidget = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      data['Poli'] ?? '-',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time_rounded,
+                        size: 12,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "$hari ($jam)",
+                        style: TextStyle(fontSize: 12, color: Colors.grey[800]),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    email,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              );
+            } else {
+              subtitleWidget = Text(
+                email,
+                style: const TextStyle(color: Colors.grey),
+              );
+            }
+
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withValues(alpha: 0.05),
+                    blurRadius: 5,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: !isActive
+                    ? Border.all(color: Colors.red.withValues(alpha: 0.3))
+                    : null,
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                leading: CircleAvatar(
+                  backgroundColor: isActive
+                      ? colorLeading.withValues(alpha: 0.1)
+                      : Colors.red[50],
+                  child: Icon(
+                    iconLeading,
+                    color: isActive ? colorLeading : Colors.red,
+                  ),
+                ),
+                title: Text(
+                  nama,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    decoration: !isActive ? TextDecoration.lineThrough : null,
+                    color: !isActive ? Colors.grey : Colors.black87,
+                  ),
+                ),
+                subtitle: subtitleWidget,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isActive)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          "Non-Aktif",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+
+                    // TOMBOL RESET PASSWORD
+                    IconButton(
+                      icon: const Icon(
+                        Icons.lock_reset_rounded,
+                        color: Colors.orange,
+                      ),
+                      tooltip: "Reset Password",
+                      onPressed: () => _kirimResetPassword(email, nama),
+                    ),
+
+                    // TOMBOL EDIT
+                    IconButton(
+                      icon: const Icon(Icons.edit_rounded, color: Colors.blue),
+                      onPressed: () =>
+                          _editUser(data, docs[index].id, roleFilter),
+                    ),
+
+                    // TOMBOL DELETE
+                    IconButton(
+                      icon: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: Colors.red,
+                      ),
+                      onPressed: () =>
+                          _deleteUser(docs[index].id, roleFilter, nama),
+                    ),
+                  ],
+                ),
+              ),
             );
-          }
+          },
         );
       },
     );
