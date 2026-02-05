@@ -92,7 +92,10 @@ class _PasienPilihDokterState extends State<PasienPilihDokter> {
       // Cek Antrian Gantung
       var cekDouble = await FirebaseFirestore.instance
           .collection('bookings')
-          .where('id_pasien', isEqualTo: user.uid)
+          .where(
+            'uid_pasien',
+            isEqualTo: user.uid,
+          ) // Gunakan UID asli untuk cek duplikat
           .where(
             'status',
             whereIn: [
@@ -282,7 +285,8 @@ class _PasienPilihDokterState extends State<PasienPilihDokter> {
           : 'Regular';
 
       await FirebaseFirestore.instance.collection('bookings').add({
-        'id_pasien': user.uid,
+        'uid_pasien': user.uid, // KUNCI ASLI (Relasi)
+        'id_pasien': userData['id_pasien'] ?? user.uid, // ID CANTIK (Tampilan)
         'nama_pasien': userData['nama'] ?? 'Pasien',
         'nomor_bpjs': userData['nomor_bpjs'] ?? '-',
         'keluhan': keluhan,

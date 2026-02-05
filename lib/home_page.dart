@@ -25,6 +25,7 @@ class _PasienHomePageState extends State<PasienHomePage> {
   String bpjsUser = "-";
   String tglLahirUser = "-";
   String umurUser = "-";
+  String genderUser = "-"; // Tambah Variable Gender
   String jenisPasien = "Umum";
 
   @override
@@ -68,6 +69,7 @@ class _PasienHomePageState extends State<PasienHomePage> {
             nikUser = data['nik'] ?? "-";
             bpjsUser = data['nomor_bpjs'] ?? "-";
             tglLahirUser = data['tanggal_lahir'] ?? "-";
+            genderUser = data['jenis_kelamin'] ?? "-"; // Ambil Data Gender
             umurUser = _hitungUmur(tglLahirUser);
 
             if (bpjsUser != "-" && bpjsUser.isNotEmpty && bpjsUser.length > 3) {
@@ -460,6 +462,12 @@ class _PasienHomePageState extends State<PasienHomePage> {
               padding: const EdgeInsets.all(15),
               child: Column(
                 children: [
+                  _buildProfileItem(
+                    Icons.wc,
+                    "Jenis Kelamin",
+                    genderUser,
+                  ), // Tampilkan Gender
+                  const Divider(),
                   _buildProfileItem(Icons.cake, "Umur", umurUser),
                   const Divider(),
                   _buildProfileItem(Icons.credit_card, "NIK", nikUser),

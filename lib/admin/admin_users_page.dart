@@ -862,6 +862,40 @@ class _AdminUsersPageState extends State<AdminUsersPage>
                   ),
                 ],
               );
+            } else if (roleFilter == 'pasien') {
+              String customId = data['id_pasien'] ?? '';
+              subtitleWidget = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (customId.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      margin: const EdgeInsets.only(bottom: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green[50],
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: Colors.green.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text(
+                        "ID: $customId",
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green[800],
+                        ),
+                      ),
+                    ),
+                  Text(
+                    email,
+                    style: const TextStyle(color: Colors.grey, fontSize: 11),
+                  ),
+                ],
+              );
             } else {
               subtitleWidget = Text(
                 email,

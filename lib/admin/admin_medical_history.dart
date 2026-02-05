@@ -64,7 +64,7 @@ class _AdminMedicalHistoryState extends State<AdminMedicalHistory> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: "Cari Nama Pasien / No BPJS...",
+                hintText: "Cari Nama / BPJS / ID Pasien...",
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -132,7 +132,12 @@ class _AdminMedicalHistoryState extends State<AdminMedicalHistory> {
                   String bpjs = (data['nomor_bpjs'] ?? '')
                       .toString()
                       .toLowerCase();
-                  return nama.contains(_keyword) || bpjs.contains(_keyword);
+                  String idPasien = (data['id_pasien'] ?? '')
+                      .toString()
+                      .toLowerCase();
+                  return nama.contains(_keyword) ||
+                      bpjs.contains(_keyword) ||
+                      idPasien.contains(_keyword);
                 }).toList();
 
                 // SORTING MANUAL (CLIENT SIDE)
@@ -203,12 +208,26 @@ class _AdminMedicalHistoryState extends State<AdminMedicalHistory> {
                             fontSize: 16,
                           ),
                         ),
-                        subtitle: Text(
-                          "${_formatDate(data['tanggal_booking'])} • ${data['poli']}",
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 13,
-                          ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "ID: ${data['id_pasien'] ?? '-'}",
+                              style: TextStyle(
+                                color: Colors.blueGrey[700],
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              "${_formatDate(data['tanggal_booking'])} • ${data['poli']}",
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                         children: [
                           Container(

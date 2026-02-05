@@ -126,8 +126,8 @@ class _AdminHomePageState extends State<AdminHomePage> {
         "page": const AdminBookingPage(),
       },
       {
-        "title": "Laporan & Statistik",
-        "subtitle": "Data Pasien & Keuangan",
+        "title": "Laporan Statistik",
+        "subtitle": "Data Keuangan",
         "icon": Icons.insert_chart_rounded,
         "color": const Color(0xFF48CAE4), // Cyan
         "page": const AdminLaporanPage(),
