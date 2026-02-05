@@ -290,8 +290,9 @@ class _PasienHomePageState extends State<PasienHomePage> {
                 .orderBy('nama_poli')
                 .snapshots(),
             builder: (context, snapshot) {
-              if (!snapshot.hasData)
+              if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
+              }
               var docs = snapshot.data!.docs;
               if (docs.isEmpty) return _buildEmptyState();
 
@@ -483,11 +484,12 @@ class _PasienHomePageState extends State<PasienHomePage> {
               label: const Text("Keluar"),
               onPressed: () async {
                 await FirebaseAuth.instance.signOut();
-                if (mounted)
+                if (mounted) {
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(builder: (c) => const LoginPage()),
                   );
+                }
               },
             ),
           ),

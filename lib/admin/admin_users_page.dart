@@ -24,8 +24,9 @@ class _AdminUsersPageState extends State<AdminUsersPage>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
-      if (!_tabController.indexIsChanging)
+      if (!_tabController.indexIsChanging) {
         setState(() => _tabIndex = _tabController.index);
+      }
     });
     _cekLevelAdmin();
   }
@@ -50,8 +51,9 @@ class _AdminUsersPageState extends State<AdminUsersPage>
     if (hari.length > 2) {
       bool urut = true;
       for (int i = 0; i < hari.length - 1; i++) {
-        if (urutan.indexOf(hari[i + 1]) != urutan.indexOf(hari[i]) + 1)
+        if (urutan.indexOf(hari[i + 1]) != urutan.indexOf(hari[i]) + 1) {
           urut = false;
+        }
       }
       if (urut) return "${hari.first} - ${hari.last}";
     }
@@ -253,10 +255,11 @@ class _AdminUsersPageState extends State<AdminUsersPage>
                 context: context,
                 initialTime: isBuka ? jamBuka : jamTutup,
               );
-              if (picked != null)
+              if (picked != null) {
                 setStateDialog(
                   () => isBuka ? jamBuka = picked : jamTutup = picked,
                 );
+              }
             }
 
             String formatTime(TimeOfDay t) =>
@@ -458,8 +461,9 @@ class _AdminUsersPageState extends State<AdminUsersPage>
             minute: int.parse(p2[1]),
           );
         }
-        if (data['hari_kerja'] is List)
+        if (data['hari_kerja'] is List) {
           hariTerpilih = List<String>.from(data['hari_kerja']);
+        }
       } catch (e) {
         print("Error parsing jadwal: $e");
       }
@@ -475,10 +479,11 @@ class _AdminUsersPageState extends State<AdminUsersPage>
                 context: context,
                 initialTime: isBuka ? jamBuka : jamTutup,
               );
-              if (picked != null)
+              if (picked != null) {
                 setStateDialog(
                   () => isBuka ? jamBuka = picked : jamTutup = picked,
                 );
+              }
             }
 
             String formatTime(TimeOfDay t) =>
@@ -638,16 +643,18 @@ class _AdminUsersPageState extends State<AdminUsersPage>
                   .collection('users')
                   .doc(docId)
                   .delete();
-              if (role == 'dokter')
+              if (role == 'dokter') {
                 FirebaseFirestore.instance
                     .collection('doctors')
                     .doc(docId)
                     .delete();
-              if (role == 'pasien')
+              }
+              if (role == 'pasien') {
                 FirebaseFirestore.instance
                     .collection('pasiens')
                     .doc(docId)
                     .delete();
+              }
               Navigator.pop(c);
             },
             child: const Text("Hapus", style: TextStyle(color: Colors.red)),
@@ -748,14 +755,16 @@ class _AdminUsersPageState extends State<AdminUsersPage>
     Query query = FirebaseFirestore.instance
         .collection('users')
         .where('role', isEqualTo: roleFilter);
-    if (roleFilter == 'dokter')
+    if (roleFilter == 'dokter') {
       query = FirebaseFirestore.instance.collection('doctors');
+    }
 
     return StreamBuilder<QuerySnapshot>(
       stream: query.snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData)
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
+        }
         var docs = snapshot.data!.docs;
 
         if (docs.isEmpty) {

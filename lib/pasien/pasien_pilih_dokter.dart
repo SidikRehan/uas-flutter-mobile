@@ -383,11 +383,13 @@ class _PasienPilihDokterState extends State<PasienPilihDokter> {
             .where('is_active', isEqualTo: true)
             .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData)
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
+          }
           var docs = snapshot.data!.docs;
-          if (docs.isEmpty)
+          if (docs.isEmpty) {
             return const Center(child: Text("Belum ada dokter aktif."));
+          }
 
           return ListView.builder(
             itemCount: docs.length,
