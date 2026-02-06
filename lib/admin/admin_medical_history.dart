@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Import Auth
 import 'package:intl/intl.dart';
 
 class AdminMedicalHistory extends StatefulWidget {
@@ -13,6 +14,7 @@ class _AdminMedicalHistoryState extends State<AdminMedicalHistory> {
   final TextEditingController _searchController = TextEditingController();
   String _keyword = "";
   late Stream<QuerySnapshot> _medicalHistoryStream;
+  bool isSuperAdmin = false; // Status Admin Sakti
 
   @override
   void initState() {
@@ -23,6 +25,53 @@ class _AdminMedicalHistoryState extends State<AdminMedicalHistory> {
         .collection('bookings')
         .where('status', isEqualTo: 'Selesai')
         .snapshots();
+    _cekLevelAdmin(); // Cek Level
+  }
+
+  // --- CEK SUPER ADMIN ---
+  void _cekLevelAdmin() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      var doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      if (doc.exists && doc.data()?['level'] == 'super') {
+        if (mounted) setState(() => isSuperAdmin = true);
+      }
+    }
+  }
+
+  // --- HAPUS RIWAYAT (SUPER ADMIN ONLY) ---
+  void _deleteHistory(String docId) {
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text("Hapus Riwayat?"),
+        content: const Text(
+          "Data ini akan dihapus PERMANEN dari database. Yakin?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text("Batal"),
+          ),
+          TextButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance
+                  .collection('bookings')
+                  .doc(docId)
+                  .delete();
+              Navigator.pop(c);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Data berhasil dihapus.")),
+              );
+            },
+            child: const Text("Hapus", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -227,8 +276,39 @@ class _AdminMedicalHistoryState extends State<AdminMedicalHistory> {
                                 fontSize: 13,
                               ),
                             ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green[50],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                "Selesai: ${_formatDate(data['tgl_bayar'] ?? data['updated_at'] ?? data['created_at'].toDate().toString())}",
+                                style: TextStyle(
+                                  color: Colors.green[700],
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
+                        // TRAILING: Tombol Hapus (Khusus Super Admin)
+                        trailing: isSuperAdmin
+                            ? IconButton(
+                                icon: const Icon(
+                                  Icons.delete_forever,
+                                  color: Colors.red,
+                                ),
+                                tooltip: "Hapus Data (Super Admin)",
+                                onPressed: () =>
+                                    _deleteHistory(filteredDocs[index].id),
+                              )
+                            : null,
                         children: [
                           Container(
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -244,6 +324,7 @@ class _AdminMedicalHistoryState extends State<AdminMedicalHistory> {
                                   "Catatan",
                                   data['catatan_dokter'],
                                 ),
+
                                 const SizedBox(height: 8),
                                 Align(
                                   alignment: Alignment.centerRight,

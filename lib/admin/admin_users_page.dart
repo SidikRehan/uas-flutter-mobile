@@ -297,7 +297,7 @@ class _AdminUsersPageState extends State<AdminUsersPage>
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) return const SizedBox();
                         return DropdownButtonFormField<String>(
-                          initialValue: selectedPoli,
+                          value: selectedPoli, // GANTI initialValue JADI value
                           decoration: const InputDecoration(
                             labelText: "Pilih Poli",
                             border: OutlineInputBorder(),
@@ -434,6 +434,9 @@ class _AdminUsersPageState extends State<AdminUsersPage>
   // --- 3. EDIT USER ---
   void _editUser(Map<String, dynamic> data, String docId, String role) {
     final namaCtrl = TextEditingController(text: data['nama'] ?? data['Nama']);
+    final emailCtrl = TextEditingController(
+      text: data['email'] ?? '',
+    ); // Input Email
     String? selectedPoli = role == 'dokter' ? data['Poli'] : null;
     bool isActive = data['is_active'] ?? true;
 
@@ -511,6 +514,14 @@ class _AdminUsersPageState extends State<AdminUsersPage>
                         labelText: "Nama Lengkap",
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: emailCtrl,
+                      decoration: const InputDecoration(
+                        labelText: "Email Login (Tampilan)",
+                        helperText: "Tidak mengubah akses login asli user",
+                      ),
+                    ),
                     if (role == 'dokter') ...[
                       const SizedBox(height: 10),
                       StreamBuilder<QuerySnapshot>(
@@ -521,7 +532,8 @@ class _AdminUsersPageState extends State<AdminUsersPage>
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) return const SizedBox();
                           return DropdownButtonFormField<String>(
-                            initialValue: selectedPoli,
+                            value:
+                                selectedPoli, // GANTI initialValue JADI value
                             items: snapshot.data!.docs
                                 .map(
                                   (doc) => DropdownMenuItem(
@@ -589,7 +601,11 @@ class _AdminUsersPageState extends State<AdminUsersPage>
                     await FirebaseFirestore.instance
                         .collection('users')
                         .doc(docId)
-                        .update({'nama': namaCtrl.text, 'is_active': isActive});
+                        .update({
+                          'nama': namaCtrl.text,
+                          'email': emailCtrl.text, // Simpan Email Baru
+                          'is_active': isActive,
+                        });
                     if (role == 'dokter') {
                       Map<String, dynamic> updateData = {
                         'nama': namaCtrl.text,
@@ -605,7 +621,7 @@ class _AdminUsersPageState extends State<AdminUsersPage>
                       await FirebaseFirestore.instance
                           .collection('doctors')
                           .doc(docId)
-                          .update(updateData);
+                          .update({...updateData, 'email': emailCtrl.text});
                     }
                     if (mounted) Navigator.pop(context);
                   },
@@ -666,7 +682,97 @@ class _AdminUsersPageState extends State<AdminUsersPage>
 
   // --- ADD ADMIN ---
   void _addAdmin() {
-    /* ... Kode sama seperti sebelumnya (hemat tempat) ... */
+    final namaCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Tambah Admin Baru"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: namaCtrl,
+                decoration: const InputDecoration(labelText: "Nama Admin"),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: emailCtrl,
+                decoration: const InputDecoration(labelText: "Email"),
+              ),
+              TextField(
+                controller: passCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: "Password"),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (emailCtrl.text.isEmpty || passCtrl.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Email/Password wajib diisi!")),
+                );
+                return;
+              }
+              try {
+                // 1. Buat Akun di Firebase Auth (Secondary App)
+                FirebaseApp secondaryApp = await Firebase.initializeApp(
+                  name: 'SecondaryApp',
+                  options: Firebase.app().options,
+                );
+                UserCredential uc =
+                    await FirebaseAuth.instanceFor(
+                      app: secondaryApp,
+                    ).createUserWithEmailAndPassword(
+                      email: emailCtrl.text,
+                      password: passCtrl.text,
+                    );
+
+                // 2. Simpan di Firestore 'users'
+                String uid = uc.user!.uid;
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(uid)
+                    .set({
+                      'uid': uid,
+                      'nama': namaCtrl.text,
+                      'email': emailCtrl.text,
+                      'role': 'admin',
+                      'level': 'staff', // Level Default: Staff
+                      'created_at': FieldValue.serverTimestamp(),
+                      'is_active': true,
+                    });
+
+                await secondaryApp.delete();
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Admin Berhasil Ditambahkan!"),
+                    ),
+                  );
+                }
+              } catch (e) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text("Gagal: $e")));
+              }
+            },
+            child: const Text("Simpan"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -849,9 +955,16 @@ class _AdminUsersPageState extends State<AdminUsersPage>
                         color: Colors.grey[600],
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        "$hari ($jam)",
-                        style: TextStyle(fontSize: 12, color: Colors.grey[800]),
+                      Expanded(
+                        child: Text(
+                          "$hari ($jam)",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[800],
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
                     ],
                   ),

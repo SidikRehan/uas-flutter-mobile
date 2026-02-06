@@ -25,14 +25,18 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       // 1. Proses Login ke Firebase Auth
-      UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+      UserCredential userCredential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
 
       // 2. Cek Role User di Firestore
       String uid = userCredential.user!.uid;
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
 
       if (userDoc.exists) {
         String role = userDoc['role'];
@@ -40,22 +44,66 @@ class _LoginPageState extends State<LoginPage> {
         if (mounted) {
           // Arahkan sesuai Role
           if (role == 'admin') {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const AdminHomePage()));
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (c) => const AdminHomePage()),
+            );
           } else if (role == 'dokter') {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const DokterDashboard()));
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (c) => const DokterDashboard()),
+            );
           } else {
             // Default ke Pasien
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const PasienHomePage()));
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (c) => const PasienHomePage()),
+            );
           }
         }
       } else {
+        // --- EMERGENCY RECOVERY UNTUK ADMIN ---
+        // Jika akun di Auth ada, tapi di Firestore hilang (terhapus)
+        if (_emailController.text.trim() == "admin@rs.com") {
+          await FirebaseFirestore.instance.collection('users').doc(uid).set({
+            'uid': uid,
+            'nama': 'Super Admin',
+            'email': 'admin@rs.com',
+            'role': 'admin',
+            'level': 'super',
+            'created_at': FieldValue.serverTimestamp(),
+            'is_active': true,
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Akun Admin Dipulihkan! Mengalihkan..."),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (c) => const AdminHomePage()),
+            );
+          }
+          return;
+        }
+
         throw "Data user tidak ditemukan di database.";
       }
-
     } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal Login: ${e.message}"), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Gagal Login: ${e.message}"),
+          backgroundColor: Colors.red,
+        ),
+      );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+      );
     } finally {
       setState(() {
         _isLoading = false;
@@ -76,7 +124,14 @@ class _LoginPageState extends State<LoginPage> {
               // Logo / Ikon RS
               const Icon(Icons.local_hospital, size: 80, color: Colors.blue),
               const SizedBox(height: 10),
-              const Text("RS SEHAT SENTOSA", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue)),
+              const Text(
+                "RS SEHAT SENTOSA",
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+              ),
               const SizedBox(height: 40),
 
               // Input Email
@@ -84,7 +139,9 @@ class _LoginPageState extends State<LoginPage> {
                 controller: _emailController,
                 decoration: InputDecoration(
                   labelText: "Email",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   prefixIcon: const Icon(Icons.email),
                 ),
               ),
@@ -96,7 +153,9 @@ class _LoginPageState extends State<LoginPage> {
                 obscureText: true,
                 decoration: InputDecoration(
                   labelText: "Password",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   prefixIcon: const Icon(Icons.lock),
                 ),
               ),
@@ -111,11 +170,19 @@ class _LoginPageState extends State<LoginPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: _isLoading 
-                    ? const CircularProgressIndicator(color: Colors.white) 
-                    : const Text("MASUK", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          "MASUK",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
 
@@ -132,7 +199,9 @@ class _LoginPageState extends State<LoginPage> {
                       // Pindah ke Halaman Register
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const RegisterPage()),
+                        MaterialPageRoute(
+                          builder: (context) => const RegisterPage(),
+                        ),
                       );
                     },
                     child: const Text(

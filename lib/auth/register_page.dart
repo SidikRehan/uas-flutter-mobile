@@ -318,7 +318,10 @@ class _RegisterPageState extends State<RegisterPage> {
                 icon: Icons.health_and_safety_outlined,
                 keyboardType: TextInputType.number,
                 isRequired: false,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(13),
+                ],
               ),
 
               const SizedBox(height: 30),
